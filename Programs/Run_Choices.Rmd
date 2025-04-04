@@ -1,0 +1,59 @@
+---
+title: "Run_Choices"
+author: "Christopher Dory"
+date: "2025-02-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#===========================================================================================
+# Requirements, only uncomment if first time running
+#===========================================================================================
+# install.packages('sf',repos = "http://cran.us.r-project.org")
+# install.packages('sp',repos = "http://cran.us.r-project.org")
+# install.packages('raster',repos = "http://cran.us.r-project.org")
+# install.packages('lwgeom',repos = "http://cran.us.r-project.org")
+# install.packages('gdalUtilities',repos = "http://cran.us.r-project.org")
+# install.packages('colorspace',repos = "http://cran.us.r-project.org")
+# install.packages('terra',repos = "http://cran.us.r-project.org")
+# install.packages('lubridate',repos = "http://cran.us.r-project.org")
+# install.packages('fields',repos = "http://cran.us.r-project.org")
+# install.packages('dismo',repos = "http://cran.us.r-project.org")
+# install.packages('deldir',repos = "http://cran.us.r-project.org")
+# install.packages('zoo',repos = "http://cran.us.r-project.org")
+# install.packages('viridis')
+# install.packages('plyr')
+# install.packages('plotly')
+# install.packages('plotrix')
+
+
+
+library(sf)
+library(sp)
+library(raster)
+library(lwgeom)
+library(gdalUtilities)
+library(colorspace)
+library(terra)
+library(lubridate)
+library(fields)
+library(dismo)
+library(deldir)
+library(zoo)
+library(viridis)
+library(plyr)
+library(stars)
+library(plotly)
+library(plotrix)
+
+```
+
+
+
+```{r, fig.height = 8, fig.width = 10, warning=FALSE, message=FALSE}
+source(file.path('Elect_Choices.R')) 
+Elect_Choices()
+```
+
