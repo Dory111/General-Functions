@@ -2,15 +2,17 @@
 # This function sets the color of the background of a plot
 #===============================================================================
 Set_Plot_BG <- function(corners = par('usr'),
-                        color = 'gray97')
+                        color = 'gray97',
+                        border = 'black')
 {
   #-------------------------------------------------------------------------------
   # draws rect of color: color
   rect(corners[1], # xleft
        corners[3], # ybot
        corners[2], # xright
-       corners[4],
-       col = color) # ytop
+       corners[4],# ytop
+       col = color,
+       border = border) 
   #-------------------------------------------------------------------------------
 }
 #-------------------------------------------------------------------------------
