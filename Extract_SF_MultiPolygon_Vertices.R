@@ -26,7 +26,6 @@ Extract_SF_MultiPolygon_Vertices <- function(geometry,lay)
 Extract_SF_MultiPolygon_Layers <- function(geometry)
 {
   
-  geometry <- b118$geometry
   geometry <- geometry[1][[1]][1]
   nlay <- length(geometry[[1]])
   
