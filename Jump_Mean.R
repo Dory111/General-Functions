@@ -13,7 +13,7 @@ Jump_Mean <- function(vector,
     stop('\nJump_Mean: DATA NOT IN FORM OF VECTOR')
   } else {}
   #-------------------------------------------------------------------------------
-  
+
   #-------------------------------------------------------------------------------
   # Numeric error
   if(is.numeric(vector) == FALSE){

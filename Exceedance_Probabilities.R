@@ -3,7 +3,8 @@
 # a vector of numeric values
 #===============================================================================
 Exceedance_Probabilities <- function(values,
-                                     na.rm = F)
+                                     na.rm = F,
+                                     decreasing = TRUE)
 {
   #-------------------------------------------------------------------------------
   # Vector error
@@ -18,12 +19,14 @@ Exceedance_Probabilities <- function(values,
     stop('\nExceedance_Probabilities: DATA NOT IN FORM OF NUMERIC')
   } else {}
   #-------------------------------------------------------------------------------
-  
+
   #-------------------------------------------------------------------------------
   values <- as.vector(unlist(values)) # coercing in case data frame column
-  values <- values[order(values, decreasing = TRUE)] # order values
   rank <- 1:length(values)
-  DF <- data.frame(Values = values, Rank = rank) # assign values rank based on their position
+  order <- 1:length(values)
+  DF <- data.frame(Values = values, Order = order) # assign values rank based on their position
+  DF <- DF[order(DF$Values, decreasing = decreasing), ] # order values
+  DF$Rank <- 1:length(values)
   DF$Prob <- 100* DF$Rank/(length(DF$Rank) + 1) # classical exceedance probability formula
   if(na.rm == T){
     DF <- DF[-c(which(is.na(DF$Values) == TRUE)), ] # remove NA
