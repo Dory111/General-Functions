@@ -30,8 +30,6 @@ LERP_Vector <- function(vector)
   # lerp between values by checking if value to right and left of each NA is a number
   position <- 0
   for(i in 1:length(values)){
-  
-    
     #-------------------------------------------------------------------------------
     # are lerp conditions true
     if(i > 1 &
