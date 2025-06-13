@@ -3,9 +3,9 @@
 #===========================================================================================
 Extract_SF_MultiPolygon_Vertices <- function(geometry,lay)
 {
-
+  
   geometry <- geometry[1][[1]][1]
-
+  
   longitude <- geometry[[1]][[lay]][,1]
   
   latitude <- geometry[[1]][[lay]][,2]

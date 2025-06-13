@@ -1,6 +1,8 @@
 library(raster)
 library(sf)
 library(terra)
+library(dplyr)
+library(tidyverse)
 
 # Example use
 # Extract_100yr_NETCDF(raster_name = 'Test',
@@ -8,15 +10,7 @@ library(terra)
 #                      start_date = '2025/01/01', # insert start_date here in YY/MM/DD
 #                      upscale = 365.25)
 
-raster <- rast(file.path(path_wgen,'25_WGEN-A-100yr_Scott Valley.nc'))
-row <- raster[[1]][1:ncell(raster)]
-plot(raster[[1]])
-x <- raster(ncol=10, nrow=10, xmn=-1000, xmx=1000, ymn=-100, ymx=900)
-x <- as(x,'SpatRaster')
-values(x) <- runif(n = ncell(x), min = 1, max = 100)
-plot(x)
-x[5]
-length(names(raster))/3
+
 #===============================================================================
 # Assumes data is in daily format
 # assumes second element of a name of a raster layer is its date in numeric days
@@ -88,28 +82,7 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
     date_table <- sapply(strsplit(names(raster),'='), function(x) x[2]) %>% # gets second element (date) of each list object
       as.numeric() %>%
       table()
-    date_seq <- seq(from = 1, to = length(date_table), by = upscale) %>%
-      floor()
-    #-------------------------------------------------------------------------------
-    
-    #-------------------------------------------------------------------------------
-    # Setting up dataframe
-    output1 <- matrix(nrow = length(date_seq),
-                      ncol = length(variable_names)) %>%
-      as.data.frame()
-    
-    units <- units(raster[[seq(from = 1,
-                               to = length(date_table)*length(variable_names),
-                               by = length(date_table))]])
-    rownames(output1) <- date_seq
-    colnames(output1) <- paste0(variable_names,' (',units,')')
-    #-------------------------------------------------------------------------------
-    
-    #-------------------------------------------------------------------------------
-    # copies for min and max and sum
-    output2 <- output1
-    output3 <- output1
-    output4 <- output1
+    date_seq <- as.numeric(names(date_table))
     #-------------------------------------------------------------------------------
     
     # ------------------------------------------------------------------------------------------------
@@ -123,7 +96,6 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
                          width = 500L) # Width of the window
     # ------------------------------------------------------------------------------------------------
     
-    
     # ------------------------------------------------------------------------------------------------
     # Update progress bar
     pctg <- paste('Reading Raster Outputs...',raster_name[i])
@@ -131,70 +103,52 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
                       0,
                       label = pctg)
     # ------------------------------------------------------------------------------------------------
-    
+
     
     #-------------------------------------------------------------------------------
-    # loop over every date and variable
-    # index 1 and index 2 are defined as a multiple of the data length
-    # netcdf files are stored as var1: 1-10, var2: 11-20 etc
-    # for example in 10 years of data the first year of precipitation might be stored at
-    # index 1:366, while the first year of tmax might be stored at index 3660:4026
-    counter <- 1
-    log <- c()
-    for(date in 1:(length(date_seq)-1)){
-      for(varnam in 1:length(variable_names)){
-        ind1 <- (date_seq[date]+((varnam-1)*length(date_table))) 
-        ind2 <- (date_seq[date+1]+((varnam-1)*length(date_table)))
-        seq <- c(ind1:ind2)
-        output1[date,varnam] <- mean(as.vector(raster[[seq]]), na.rm = T)
-        output2[date,varnam] <- max(as.vector(raster[[seq]]), na.rm = T)
-        output3[date,varnam] <- min(as.vector(raster[[seq]]), na.rm = T)
-        output4[date,varnam] <- sum(as.vector(raster[[seq]]), na.rm = T)
-        log <- append(log, unique(varnames(raster[[seq]])))
-        
-        #-------------------------------------------------------------------------------
-        # Error message in rare case a sequence that is supposed to contain
-        # a full year (default) of data for a single variable instead overflows into a different
-        if(date > 1){
-          if(log[date-1] == log[date] |
-             length(log[date]) > 1){
-            stop('\nExtract_100yr_NETCDF: SEQUENCE DOES NOT RETURN UNIQUE VARIABLES')
-          }
-        }
-        #-------------------------------------------------------------------------------
-      }
+    # code loops over every variable name,
+    for(j in 1:length(variable_names)){
+      #-------------------------------------------------------------------------------
+      # fetching data
+      output <- list()
+      start <- ((j-1) * length(date_seq) + 1) # where to start stacked extraction
+      rows <- matrix(nrow = length(date_seq),
+                     ncol = (ncell(raster)),
+                     data = as.vector(unlist(raster[[start:(length(date_seq)*j)]][1:ncell(raster)])),
+                     byrow = T) %>% as.data.frame()
+      rows$date <- date_seq
+      rows$date <- as.Date(rows$date + as.numeric(as.Date(start_date)))
+      rows <- rows[,c(ncol(rows),2:(ncol(rows)-1))]
+      colnames(rows) <- c('Date',1:ncell(raster))
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # pb elements
+      math <- (((j/length(variable_names)) * 100) * (1/length(raster_name))) + (i/length(raster_name) * 100)
+      math <- round(math,0)
       setWinProgressBar(pb,
-                        round((date/length(date_seq)) * 100,0),
+                        math,
                         label = pctg)
-      counter <- counter + 1
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # Bind Results and writeout
+      dir.create(file.path(path_wgen,'CSV Summaries',raster_name))
+      write.csv(rows,
+                file.path(path_wgen,'CSV Summaries',raster_name,paste0(raster_name,'_',variable_names[j],'.csv')),
+                row.names = FALSE)
+      #-------------------------------------------------------------------------------
     }
-    close(pb)
-    #-------------------------------------------------------------------------------
-    
-   
-    #-------------------------------------------------------------------------------
-    # Writeout
-    output1$Date <- as.Date((date_seq - 1) + as.numeric(as.Date(start_date)))
-    output2$Date <- as.Date((date_seq - 1) + as.numeric(as.Date(start_date)))
-    output3$Date <- as.Date((date_seq - 1) + as.numeric(as.Date(start_date)))
-    output4$Date <- as.Date((date_seq - 1) + as.numeric(as.Date(start_date)))
-    write.csv(output1,
-              file.path(path_wgen,'CSV Summaries',paste0('Summary_of_Means_By_',floor(upscale),'_',raster_name,'.csv')),
-              row.names = FALSE)
-    write.csv(output2,
-              file.path(path_wgen,'CSV Summaries',paste0('Summary_of_Maxes_By_',floor(upscale),'_',raster_name,'.csv')),
-              row.names = FALSE)
-    write.csv(output3,
-              file.path(path_wgen,'CSV Summaries',paste0('Summary_of_Mins_By_',floor(upscale),'_',raster_name,'.csv')),
-              row.names = FALSE)
-    write.csv(output4,
-              file.path(path_wgen,'CSV Summaries',paste0('Summary_of_Sums_By_',floor(upscale),'_',raster_name,'.csv')),
-              row.names = FALSE)
     #-------------------------------------------------------------------------------
   }
+  close(pb)
   # ------------------------------------------------------------------------------------------------
+  
+  #-------------------------------------------------------------------------------
+  # write raster vertices
   write.csv(xy,
             file.path(path_wgen,paste0('WGEN_Vertices.csv')),
             row.names = FALSE)
+  #-------------------------------------------------------------------------------
 }
 #-------------------------------------------------------------------------------
