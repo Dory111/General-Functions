@@ -8,7 +8,9 @@ Decide_Percentage_Marks <- function(base_values,
                                     round = 3)
 {
   # -------------------------------------------------------------------------------------
-  range <- range(((new_values - base_values)/base_values)*100)
+  avoid_nans <- ((new_values - base_values)/base_values)*100
+  range <- range(avoid_nans[is.nan(avoid_nans) == FALSE &
+                              is.na(avoid_nans) == FALSE])
   percentages_sequence <- seq(from = range[1],
                               to = range[2],
                               length.out = length(plot_axis))
