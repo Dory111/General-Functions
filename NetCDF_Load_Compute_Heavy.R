@@ -43,7 +43,7 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
   ####################################### Progress elements ####################
   # ------------------------------------------------------------------------------------------------
   # is user on server? if not on server initialize pb elements and set paths relative to dropbox
-  if(server_mode == T){
+  if(server_mode == F){
     # ------------------------------------------------------------------------------------------------
     # Initializes the progress bar
     max_pb <- 100
@@ -154,7 +154,7 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
       
       #-------------------------------------------------------------------------------
       # is user on server
-      if(server_mode == T){
+      if(server_mode == F){
         #-------------------------------------------------------------------------------
         # pb elements
         math <- (((j/length(variable_names)) * 100) * (1/length(raster_name))) + (i/length(raster_name) * 100)
