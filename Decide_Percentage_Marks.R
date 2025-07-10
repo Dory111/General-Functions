@@ -1,9 +1,8 @@
 ################################################################################
 ############################## EXAMPLE #########################################
 ################################################################################
-# base_values <- runif(n = 50000, min = 0, max = 100) %>% round(0)
-# new_values <- runif(n = 49999, min = 0, max = 100) %>% round(0)
-# new_values <- append(new_values, 110)
+# base_values <- runif(n = 50000, min = 0, max = 200) %>% round(0)
+# new_values <- runif(n = 49999, min = 0, max = 200) %>% round(0)
 # plot(new_values-base_values,
 #      type = 'l')
 # axis(4,
