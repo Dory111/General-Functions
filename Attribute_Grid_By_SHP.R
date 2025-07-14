@@ -129,8 +129,26 @@ Attribute_Grid_By_SHP <- function(out_dir,
   
   
   # -------------------------------------------------------------------------------------
+  # if starting values are in the format of a raster of the same dimensionality of
+  # the model grid
   if(is_raster == TRUE){
-    
+    Start_From_Supplied_Raster(out_dir,
+                              out_name,
+                              shapefile,
+                              model_grid,
+                              cell_area,
+                              hru_id_column,
+                              replacement_value,
+                              starting_values,
+                              export_as_grid,
+                              export_long_format,
+                              is_raster,
+                              grid_dims,
+                              null_value,
+                              engulf,
+                              partial_fact,
+                              scale_by_intersected_area,
+                              example)
   }
   # -------------------------------------------------------------------------------------
   
@@ -286,7 +304,7 @@ Start_From_Null_Grid <- function(out_dir,
       
       # -------------------------------------------------------------------------------------
       cat(paste0('\nExporting as csv at dsn\n',file.path(out_dir,out_name),'\n\n\n'))
-      export_long <- data.frame(HRU_ID = as.vector(unlist(model_grid[hru_id_column])),
+      export_long <- data.frame(HRU_ID = as.vector(unlist(st_drop_geometry(model_grid[hru_id_column]))),
                                 UPDATED_VALUE = as.vector(unlist(model_grid$UPDATED_VALUE)))
       export_long <- export_long[order(export_long$HRU_ID, decreasing = FALSE)]
       write.csv(x = export_long,
@@ -473,7 +491,7 @@ Start_From_Supplied_Long_Format <- function(out_dir,
       
       # -------------------------------------------------------------------------------------
       cat(paste0('\nExporting as csv at dsn\n',file.path(out_dir,out_name),'\n\n\n'))
-      export_long <- data.frame(HRU_ID = as.vector(unlist(model_grid[hru_id_column])),
+      export_long <- data.frame(HRU_ID = as.vector(unlist(st_drop_geometry(model_grid[hru_id_column]))),
                                 UPDATED_VALUE = as.vector(unlist(model_grid$UPDATED_VALUE)))
       export_long <- export_long[order(export_long$HRU_ID, decreasing = FALSE)]
       write.csv(x = export_long,
@@ -498,6 +516,209 @@ Start_From_Supplied_Long_Format <- function(out_dir,
         xy <- st_sfc(st_point(xyFromCell(starting_raster,i)), crs = crs(model_grid))
         values <- append(values, st_intersection(model_grid,xy)$UPDATED_VALUE)
         
+      }
+      values(starting_raster) <- values
+      raster <<- starting_raster
+      # -------------------------------------------------------------------------------------
+    }
+  }
+}
+# -------------------------------------------------------------------------------------
+
+
+
+#===============================================================================
+# Placeholder
+#===============================================================================
+Start_From_Supplied_Raster <- function(out_dir,
+                                       out_name,
+                                       shapefile,
+                                       model_grid,
+                                       cell_area,
+                                       hru_id_column,
+                                       replacement_value,
+                                       starting_values,
+                                       export_as_grid,
+                                       export_long_format,
+                                       is_raster,
+                                       grid_dims,
+                                       null_value,
+                                       engulf,
+                                       partial_fact,
+                                       scale_by_intersected_area,
+                                       example)
+{
+  # -------------------------------------------------------------------------------------
+  # Starting values and area to reach 100% engulf
+  cat('\nRetrieving starting values and intersecting model grid by shapefile\n\n\n')
+  original_colnames <- colnames(model_grid)
+  original_colnames <- append(original_colnames, 'UPDATED_VALUE')
+  model_grid$DUMMY_ID <- c(1:nrow(model_grid))
+  model_grid$STARTING_VALUES <- rep(0,nrow(model_grid))
+  starting_raster <- starting_values
+  # -------------------------------------------------------------------------------------
+  
+  # -------------------------------------------------------------------------------------
+  # Attributing starting value raster to model grid
+  # wherever raster does not intersect is set to 0
+  values <- c()
+  for(i in 1:ncell(starting_raster)){
+    
+    xy <- st_sfc(st_point(xyFromCell(starting_raster,i)), crs = crs(model_grid))
+    value <- terra::extract(starting_raster,xyFromCell(starting_raster,i)) %>% unlist()
+    int <- st_intersection(model_grid,xy)$DUMMY_ID
+    # -------------------------------------------------------------------------------------
+    # Does intersection exist
+    if(length(int) > 0){
+      model_grid$STARTING_VALUES[model_grid$DUMMY_ID == int] <- value
+    }
+    # -------------------------------------------------------------------------------------
+    
+  }
+  model_grid$UPDATED_VALUE <- model_grid$STARTING_VALUES
+  # -------------------------------------------------------------------------------------
+  
+  # -------------------------------------------------------------------------------------
+  if(is.null(cell_area) == TRUE){
+    cell_area <- st_area(model_grid[1,])
+  }
+  # -------------------------------------------------------------------------------------
+
+  # -------------------------------------------------------------------------------------
+  intersected_model_grid <- st_intersection(model_grid,
+                                            shapefile)
+  intersected_model_grid$Percent_Area <- as.numeric(round((st_area(intersected_model_grid)/cell_area) * 100,1))
+  # -------------------------------------------------------------------------------------
+
+
+
+
+  ################################### DECIDING HOW TO UPDATE VALUES #####################
+  # -------------------------------------------------------------------------------------
+  # if entire cell needs to be engulfed then only set cells engulfed to the replacement value
+
+  # if entire cell DOES NOT need to be engulfed and scale_by_intersected_area is specified
+  # then only set cells covered above some value
+  # of their area to the replacement value multiplied by how much of the cell is covered
+
+  # if entire cell DOES NOT need to be engulfed and scale_by_intersected_area is  NOT specified
+  # then only set cells covered above some value
+  # of their area to the replacement value
+  cat('\nUpdating values in intersected grid\n\n\n')
+  if(engulf == TRUE){
+
+    cat('\nengulf == TRUE\n\n\n')
+    intersected_model_grid$UPDATED_VALUE[intersected_model_grid$Percent_Area == 100] <- replacement_value
+
+  } else if(is.null(partial_fact) == FALSE & scale_by_intersected_area == TRUE){
+
+    cat(paste0('\nscaling by intersected area above ','factor of ',partial_fact,' % area\n\n\n'))
+    # -------------------------------------------------------------------------------------
+    for(i in 1:nrow(intersected_model_grid)){
+      if(intersected_model_grid$Percent_Area[i] >= partial_fact){
+        lerp <- abs(replacement_value - intersected_model_grid$STARTING_VALUES[i]) # how much distance is being covered
+        lerp <- lerp * intersected_model_grid$Percent_Area[i]/100 # what is distance * percent area
+
+        # -------------------------------------------------------------------------------------
+        # if value is being increased
+        if(intersected_model_grid$STARTING_VALUES[i] < replacement_value){
+          intersected_model_grid$UPDATED_VALUE[i] <- intersected_model_grid$STARTING_VALUES[i] + lerp
+        }
+        # -------------------------------------------------------------------------------------
+
+        # -------------------------------------------------------------------------------------
+        # if value is being decreased
+        if(intersected_model_grid$STARTING_VALUES[i] > replacement_value){
+          intersected_model_grid$UPDATED_VALUE[i] <- intersected_model_grid$STARTING_VALUES[i] - lerp
+        }
+        # -------------------------------------------------------------------------------------
+      }
+      # -------------------------------------------------------------------------------------
+    }
+    # -------------------------------------------------------------------------------------
+
+  } else if(is.null(partial_fact) == FALSE & scale_by_intersected_area == FALSE){
+
+    cat(paste0('\nassigning all cells above ','factor of ',partial_fact,' % area to replacement value\n\n\n'))
+    intersected_model_grid$UPDATED_VALUE[intersected_model_grid$Percent_Area >= partial_fact] <- replacement_value
+
+  }
+  # -------------------------------------------------------------------------------------
+
+  # -------------------------------------------------------------------------------------
+  # set model grid equal to replacement values
+  cat('\nSetting model grid to replacement values\n\n\n')
+  for(i in 1:nrow(model_grid)){
+    if(model_grid$DUMMY_ID[i] %in% intersected_model_grid$DUMMY_ID){
+      model_grid$UPDATED_VALUE[i] <- intersected_model_grid$UPDATED_VALUE[intersected_model_grid$DUMMY_ID == model_grid$DUMMY_ID[i]]
+    }
+  }
+  model_grid <- model_grid[ ,-c(which(!colnames(model_grid) %in% original_colnames))]
+  # -------------------------------------------------------------------------------------
+
+
+
+
+
+
+  ################################### EXPORT ############################################
+
+  # -------------------------------------------------------------------------------------
+  if(example == FALSE){
+    if(export_as_grid == TRUE){
+
+      cat(paste0('\nExporting as raster at dsn\n',file.path(out_dir,out_name),'\n\n\n'))
+
+      # -------------------------------------------------------------------------------------
+      values <- c()
+      for(i in 1:ncell(starting_raster)){
+
+        xy <- st_sfc(st_point(xyFromCell(starting_raster,i)), crs = crs(model_grid))
+        values <- append(values, st_intersection(model_grid,xy)$UPDATED_VALUE)
+
+      }
+      values(starting_raster) <- values
+      # -------------------------------------------------------------------------------------
+
+      # -------------------------------------------------------------------------------------
+      writeRaster(x = starting_raster,
+                  filename = file.path(out_dir,paste0(out_name,'.tif')),
+                  overwrite = TRUE,
+                  progress = 0)
+      st_write(obj = model_grid,
+               dsn = file.path(out_dir,paste0(out_name,'.shp')),
+               append = FALSE)
+      # -------------------------------------------------------------------------------------
+
+    } else if(export_long_format == TRUE){
+
+      # -------------------------------------------------------------------------------------
+      cat(paste0('\nExporting as csv at dsn\n',file.path(out_dir,out_name),'\n\n\n'))
+      export_long <- data.frame(HRU_ID = as.vector(unlist(st_drop_geometry(model_grid[hru_id_column]))),
+                                UPDATED_VALUE = as.vector(unlist(model_grid$UPDATED_VALUE)))
+      export_long <- export_long[order(export_long$HRU_ID, decreasing = FALSE)]
+      write.csv(x = export_long,
+                file = file.path(out_dir,paste0(out_name,'.csv')),
+                row.names = FALSE)
+      st_write(obj = model_grid,
+               dsn = file.path(out_dir,paste0(out_name,'.shp')),
+               append = FALSE)
+      # -------------------------------------------------------------------------------------
+    }
+    # -------------------------------------------------------------------------------------
+  } else { # example mode
+    if(export_long_format == TRUE){
+      export_long <<- data.frame(HRU_ID = as.vector(unlist(st_drop_geometry(model_grid[hru_id_column]))),
+                                 UPDATED_VALUE = as.vector(unlist(model_grid$UPDATED_VALUE)))
+    }
+    if(export_as_grid == TRUE){
+      # -------------------------------------------------------------------------------------
+      values <- c()
+      for(i in 1:ncell(starting_raster)){
+
+        xy <- st_sfc(st_point(xyFromCell(starting_raster,i)), crs = crs(model_grid))
+        values <- append(values, st_intersection(model_grid,xy)$UPDATED_VALUE)
+
       }
       values(starting_raster) <- values
       raster <<- starting_raster
@@ -547,119 +768,116 @@ Reconstruct_Grid <- function(grid_dims,
 ###########################################################################################
 ############################## EXAMPLE ####################################################
 ###########################################################################################
-polygon <- Create_Example_Shapefile()
-grid <- Create_Example_Model_Grid()
-
-# -------------------------------------------------------------------------------------
-# Plot 1
-# Displays prior condition
-plot(st_geometry(grid),
-     border = 'gray60',
-     main = 'Starting Condition',
-     axes = T)
-
-plot(st_geometry(polygon),
-     border = NA,
-     col = Hex_to_RGBA('dodgerblue3', Alpha = 0.6),
-     add = T)
-for(i in 1:nrow(grid)){
-  text(x = st_centroid(grid$geometry[i])[[1]][1],
-       y = st_centroid(grid$geometry[i])[[1]][2],
-       labels = '1')
-}
-legend(x = 'topleft',
-       legend = c('Model Grid', 'Intersecting Shapefile'),
-       col = c('gray60','dodgerblue3'),
-       lwd = c(3,NA),
-       pch = c(NA,15),
-       cex = 1.3)
-# -------------------------------------------------------------------------------------
-
-
-# -------------------------------------------------------------------------------------
-# Run function
-Attribute_Grid_By_SHP(out_dir = '',
-                      out_name = '',
-                      shapefile = polygon,
-                      model_grid = grid,
-                      hru_id_column = 1,
-                      replacement_value = 3,
-                      starting_values = rep(1,100),
-                      export_as_grid = TRUE,
-                      export_long_format = TRUE,
-                      is_raster = FALSE,
-                      grid_dims = c(10,10),
-                      null_value = 0,
-                      engulf = FALSE,
-                      partial_fact = 10,
-                      scale_by_intersected_area = TRUE,
-                      example = TRUE)
-# -------------------------------------------------------------------------------------
-
-
-# -------------------------------------------------------------------------------------
-# Plot 2
-# Displays condition after assigning new values
-plot(st_geometry(grid),
-     border = 'gray60',
-     main = 'Ending Condition',
-     axes = T)
-
-plot(st_geometry(polygon),
-     border = NA,
-     col = Hex_to_RGBA('dodgerblue3', Alpha = 0.6),
-     add = T)
-for(i in 1:nrow(grid)){
-  if(round(export_long$UPDATED_VALUE[i],1) == 1){
-    text(x = st_centroid(grid$geometry[i])[[1]][1],
-         y = st_centroid(grid$geometry[i])[[1]][2],
-         labels = round(export_long$UPDATED_VALUE[i],1))
-  } else {
-    text(x = st_centroid(grid$geometry[i])[[1]][1],
-         y = st_centroid(grid$geometry[i])[[1]][2],
-         labels = round(export_long$UPDATED_VALUE[i],1),
-         col = 'red')
-  }
-  
-}
-legend(x = 'topleft',
-       legend = c('Model Grid', 'Intersecting Shapefile'),
-       col = c('gray60','dodgerblue3'),
-       lwd = c(3,NA),
-       pch = c(NA,15),
-       cex = 1.3)
-# -------------------------------------------------------------------------------------
-
-
-# -------------------------------------------------------------------------------------
-# Plot 3
-plot(raster, col = rev(sequential_hcl(n = 100, palette = 'Reds')),
-     main = 'Exported As Raster')
-plot(st_geometry(grid),
-     border = 'gray60',
-     add = T)
-plot(st_geometry(polygon),
-     border = 'black',
-     col = NA,
-     add = T, lwd = 3)
-for(i in 1:nrow(grid)){
-  text(x = st_centroid(grid$geometry[i])[[1]][1],
-       y = st_centroid(grid$geometry[i])[[1]][2],
-       labels = round(export_long$UPDATED_VALUE[i],1))
-}
-legend(x = 'topleft',
-       legend = c('Model Grid', 'Intersecting Shapefile','Raster Values'),
-       col = c('gray60','black','red'),
-       lwd = c(3,3,NA),
-       pch = c(NA,NA,15),
-       cex = 1.3)
-# -------------------------------------------------------------------------------------
-
-
-
-
-
-
+# polygon <- Create_Example_Shapefile()
+# grid <- Create_Example_Model_Grid()
+# 
+# # -------------------------------------------------------------------------------------
+# # Plot 1
+# # Displays prior condition
+# plot(st_geometry(grid),
+#      border = 'gray60',
+#      main = 'Starting Condition',
+#      axes = T)
+# 
+# plot(st_geometry(polygon),
+#      border = NA,
+#      col = Hex_to_RGBA('dodgerblue3', Alpha = 0.6),
+#      add = T)
+# for(i in 1:nrow(grid)){
+#   text(x = st_centroid(grid$geometry[i])[[1]][1],
+#        y = st_centroid(grid$geometry[i])[[1]][2],
+#        labels = '1')
+# }
+# legend(x = 'topleft',
+#        legend = c('Model Grid', 'Intersecting Shapefile'),
+#        col = c('gray60','dodgerblue3'),
+#        lwd = c(3,NA),
+#        pch = c(NA,15),
+#        cex = 1.3)
+# # -------------------------------------------------------------------------------------
+# 
+# 
+# # -------------------------------------------------------------------------------------
+# # Run function
+# Attribute_Grid_By_SHP(out_dir = '',
+#                       out_name = '',
+#                       shapefile = polygon,
+#                       model_grid = grid,
+#                       hru_id_column = 1,
+#                       replacement_value = 3,
+#                       starting_values = rep(1,100),
+#                       export_as_grid = TRUE,
+#                       export_long_format = TRUE,
+#                       is_raster = FALSE,
+#                       grid_dims = c(10,10),
+#                       null_value = 0,
+#                       engulf = FALSE,
+#                       partial_fact = 10,
+#                       scale_by_intersected_area = TRUE,
+#                       example = TRUE)
+# # -------------------------------------------------------------------------------------
+# 
+# 
+# # -------------------------------------------------------------------------------------
+# # Plot 2
+# # Displays condition after assigning new values
+# plot(st_geometry(grid),
+#      border = 'gray60',
+#      main = 'Ending Condition',
+#      axes = T)
+# 
+# plot(st_geometry(polygon),
+#      border = NA,
+#      col = Hex_to_RGBA('dodgerblue3', Alpha = 0.6),
+#      add = T)
+# for(i in 1:nrow(grid)){
+#   if(round(export_long$UPDATED_VALUE[i],1) == 1){
+#     text(x = st_centroid(grid$geometry[i])[[1]][1],
+#          y = st_centroid(grid$geometry[i])[[1]][2],
+#          labels = round(export_long$UPDATED_VALUE[i],1))
+#   } else {
+#     text(x = st_centroid(grid$geometry[i])[[1]][1],
+#          y = st_centroid(grid$geometry[i])[[1]][2],
+#          labels = round(export_long$UPDATED_VALUE[i],1),
+#          col = 'red')
+#   }
+#   
+# }
+# legend(x = 'topleft',
+#        legend = c('Model Grid', 'Intersecting Shapefile'),
+#        col = c('gray60','dodgerblue3'),
+#        lwd = c(3,NA),
+#        pch = c(NA,15),
+#        cex = 1.3)
+# # -------------------------------------------------------------------------------------
+# 
+# 
+# # -------------------------------------------------------------------------------------
+# # Plot 3
+# plot(raster,
+#      col = rev(sequential_hcl(n = 100, palette = 'Reds')),
+#      main = 'Exported As Raster',
+#      legend = F)
+# plot(st_geometry(grid),
+#      border = 'gray60',
+#      add = T)
+# plot(st_geometry(polygon),
+#      border = 'black',
+#      col = NA,
+#      add = T, lwd = 3)
+# for(i in 1:nrow(grid)){
+#   text(x = st_centroid(grid$geometry[i])[[1]][1],
+#        y = st_centroid(grid$geometry[i])[[1]][2],
+#        labels = round(export_long$UPDATED_VALUE[i],1))
+# }
+# legend(x = -243430,
+#        y = 395200,
+#        legend = c('Model Grid', 'Intersecting Shapefile','Raster Values'),
+#        col = c('gray60','black','red'),
+#        lwd = c(3,3,NA),
+#        pch = c(NA,NA,15),
+#        cex = 1.3)
+# # -------------------------------------------------------------------------------------
 
 
 
