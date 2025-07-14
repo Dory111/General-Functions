@@ -2,7 +2,8 @@
 # Allows for st intersection on extents
 # Must be extent from raster package
 #===========================================================================================
-Extent_To_Poly <- function(extent)
+Extent_To_Poly <- function(extent,
+                           crs = 4326)
 {
   #-------------------------------------------------------------------------------
   # Null dataframe to map onto
@@ -12,7 +13,7 @@ Extent_To_Poly <- function(extent)
   df$Lat[1] <- 42
   df <- st_as_sf(df,
                  coords = c('Lon','Lat'),
-                 crs = 4326)
+                 crs = crs)
   #-------------------------------------------------------------------------------
   
   

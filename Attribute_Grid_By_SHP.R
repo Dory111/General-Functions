@@ -258,11 +258,7 @@ Start_From_Null_Grid <- function(out_dir,
   # -------------------------------------------------------------------------------------
   # set model grid equal to replacement values
   cat('\nSetting model grid to replacement values\n\n\n')
-  for(i in 1:nrow(model_grid)){
-    if(model_grid$DUMMY_ID[i] %in% intersected_model_grid$DUMMY_ID){
-      model_grid$UPDATED_VALUE[i] <- intersected_model_grid$UPDATED_VALUE[intersected_model_grid$DUMMY_ID == model_grid$DUMMY_ID[i]]
-    }
-  }
+  model_grid$UPDATED_VALUE[model_grid$DUMMY_ID %in% intersected_model_grid$DUMMY_ID] <- intersected_model_grid$UPDATED_VALUE
   model_grid <- model_grid[ ,-c(which(!colnames(model_grid) %in% original_colnames))]
   # -------------------------------------------------------------------------------------
 
@@ -280,13 +276,10 @@ Start_From_Null_Grid <- function(out_dir,
       cat(paste0('\nExporting as raster at dsn\n',file.path(out_dir,out_name),'\n\n\n'))
       
       # -------------------------------------------------------------------------------------
-      values <- c()
-      for(i in 1:ncell(starting_raster)){
-        
-        xy <- st_sfc(st_point(xyFromCell(starting_raster,i)), crs = crs(model_grid))
-        values <- append(values, st_intersection(model_grid,xy)$UPDATED_VALUE)
-        
-      }
+      xy <- xyFromCell(starting_raster,1:ncell(starting_raster)) %>%
+        as.data.frame() %>%
+        st_as_sf(coords = c('x','y'), crs = crs(model_grid))
+      values <- st_intersection(model_grid,xy)$UPDATED_VALUE
       values(starting_raster) <- values
       # -------------------------------------------------------------------------------------
       
@@ -323,13 +316,11 @@ Start_From_Null_Grid <- function(out_dir,
     }
     if(export_as_grid == TRUE){
       # -------------------------------------------------------------------------------------
-      values <- c()
-      for(i in 1:ncell(starting_raster)){
-        
-        xy <- st_sfc(st_point(xyFromCell(starting_raster,i)), crs = crs(model_grid))
-        values <- append(values, st_intersection(model_grid,xy)$UPDATED_VALUE)
-        
-      }
+      xy <- xyFromCell(starting_raster,1:ncell(starting_raster)) %>%
+        as.data.frame() %>%
+        st_as_sf(coords = c('x','y'), crs = crs(model_grid))
+      values <- st_intersection(model_grid,xy)$UPDATED_VALUE
+      
       values(starting_raster) <- values
       raster <<- raster
       # -------------------------------------------------------------------------------------
@@ -433,7 +424,6 @@ Start_From_Supplied_Long_Format <- function(out_dir,
       # -------------------------------------------------------------------------------------
     }
     # -------------------------------------------------------------------------------------
-    
   } else if(is.null(partial_fact) == FALSE & scale_by_intersected_area == FALSE){
     
     cat(paste0('\nassigning all cells above ','factor of ',partial_fact,' % area to replacement value\n\n\n'))
@@ -445,11 +435,7 @@ Start_From_Supplied_Long_Format <- function(out_dir,
   # -------------------------------------------------------------------------------------
   # set model grid equal to replacement values
   cat('\nSetting model grid to replacement values\n\n\n')
-  for(i in 1:nrow(model_grid)){
-    if(model_grid$DUMMY_ID[i] %in% intersected_model_grid$DUMMY_ID){
-      model_grid$UPDATED_VALUE[i] <- intersected_model_grid$UPDATED_VALUE[intersected_model_grid$DUMMY_ID == model_grid$DUMMY_ID[i]]
-    }
-  }
+  model_grid$UPDATED_VALUE[model_grid$DUMMY_ID %in% intersected_model_grid$DUMMY_ID] <- intersected_model_grid$UPDATED_VALUE
   model_grid <- model_grid[ ,-c(which(!colnames(model_grid) %in% original_colnames))]
   # -------------------------------------------------------------------------------------
   
@@ -467,13 +453,10 @@ Start_From_Supplied_Long_Format <- function(out_dir,
       cat(paste0('\nExporting as raster at dsn\n',file.path(out_dir,out_name),'\n\n\n'))
       
       # -------------------------------------------------------------------------------------
-      values <- c()
-      for(i in 1:ncell(starting_raster)){
-        
-        xy <- st_sfc(st_point(xyFromCell(starting_raster,i)), crs = crs(model_grid))
-        values <- append(values, st_intersection(model_grid,xy)$UPDATED_VALUE)
-        
-      }
+      xy <- xyFromCell(starting_raster,1:ncell(starting_raster)) %>%
+        as.data.frame() %>%
+        st_as_sf(coords = c('x','y'), crs = crs(model_grid))
+      values <- st_intersection(model_grid,xy)$UPDATED_VALUE
       values(starting_raster) <- values
       # -------------------------------------------------------------------------------------
       
@@ -510,13 +493,11 @@ Start_From_Supplied_Long_Format <- function(out_dir,
     }
     if(export_as_grid == TRUE){
       # -------------------------------------------------------------------------------------
-      values <- c()
-      for(i in 1:ncell(starting_raster)){
-        
-        xy <- st_sfc(st_point(xyFromCell(starting_raster,i)), crs = crs(model_grid))
-        values <- append(values, st_intersection(model_grid,xy)$UPDATED_VALUE)
-        
-      }
+      xy <- xyFromCell(starting_raster,1:ncell(starting_raster)) %>%
+        as.data.frame() %>%
+        st_as_sf(coords = c('x','y'), crs = crs(model_grid))
+      values <- st_intersection(model_grid,xy)$UPDATED_VALUE
+
       values(starting_raster) <- values
       raster <<- starting_raster
       # -------------------------------------------------------------------------------------
@@ -524,7 +505,6 @@ Start_From_Supplied_Long_Format <- function(out_dir,
   }
 }
 # -------------------------------------------------------------------------------------
-
 
 
 #===============================================================================
@@ -561,23 +541,21 @@ Start_From_Supplied_Raster <- function(out_dir,
   # -------------------------------------------------------------------------------------
   # Attributing starting value raster to model grid
   # wherever raster does not intersect is set to 0
-  values <- c()
-  for(i in 1:ncell(starting_raster)){
-    
-    xy <- st_sfc(st_point(xyFromCell(starting_raster,i)), crs = crs(model_grid))
-    value <- terra::extract(starting_raster,xyFromCell(starting_raster,i)) %>% unlist()
-    int <- st_intersection(model_grid,xy)$DUMMY_ID
-    # -------------------------------------------------------------------------------------
-    # Does intersection exist
-    if(length(int) > 0){
-      model_grid$STARTING_VALUES[model_grid$DUMMY_ID == int] <- value
-    }
-    # -------------------------------------------------------------------------------------
-    
+  # unsure why terra reverses the order of extracted cells
+  xy <- xyFromCell(starting_raster,1:ncell(starting_raster)) %>%
+    as.data.frame() %>%
+    st_as_sf(coords = c('x','y'), crs = crs(model_grid))
+  values <- terra::extract(starting_raster,xyFromCell(starting_raster,1:ncell(starting_raster))) %>% 
+    unlist() %>% as.vector()
+  values <- rev(values)
+  int <- st_intersection(model_grid,xy)$DUMMY_ID
+  if(length(int) > 0){
+    model_grid$STARTING_VALUES[model_grid$DUMMY_ID %in% int] <- values
   }
   model_grid$UPDATED_VALUE <- model_grid$STARTING_VALUES
   # -------------------------------------------------------------------------------------
   
+ 
   # -------------------------------------------------------------------------------------
   if(is.null(cell_area) == TRUE){
     cell_area <- st_area(model_grid[1,])
@@ -648,11 +626,7 @@ Start_From_Supplied_Raster <- function(out_dir,
   # -------------------------------------------------------------------------------------
   # set model grid equal to replacement values
   cat('\nSetting model grid to replacement values\n\n\n')
-  for(i in 1:nrow(model_grid)){
-    if(model_grid$DUMMY_ID[i] %in% intersected_model_grid$DUMMY_ID){
-      model_grid$UPDATED_VALUE[i] <- intersected_model_grid$UPDATED_VALUE[intersected_model_grid$DUMMY_ID == model_grid$DUMMY_ID[i]]
-    }
-  }
+  model_grid$UPDATED_VALUE[model_grid$DUMMY_ID %in% intersected_model_grid$DUMMY_ID] <- intersected_model_grid$UPDATED_VALUE
   model_grid <- model_grid[ ,-c(which(!colnames(model_grid) %in% original_colnames))]
   # -------------------------------------------------------------------------------------
 
@@ -662,7 +636,6 @@ Start_From_Supplied_Raster <- function(out_dir,
 
 
   ################################### EXPORT ############################################
-
   # -------------------------------------------------------------------------------------
   if(example == FALSE){
     if(export_as_grid == TRUE){
@@ -670,13 +643,10 @@ Start_From_Supplied_Raster <- function(out_dir,
       cat(paste0('\nExporting as raster at dsn\n',file.path(out_dir,out_name),'\n\n\n'))
 
       # -------------------------------------------------------------------------------------
-      values <- c()
-      for(i in 1:ncell(starting_raster)){
-
-        xy <- st_sfc(st_point(xyFromCell(starting_raster,i)), crs = crs(model_grid))
-        values <- append(values, st_intersection(model_grid,xy)$UPDATED_VALUE)
-
-      }
+      xy <- xyFromCell(starting_raster,1:ncell(starting_raster)) %>%
+        as.data.frame() %>%
+        st_as_sf(coords = c('x','y'), crs = crs(model_grid))
+      values <- st_intersection(model_grid,xy)$UPDATED_VALUE
       values(starting_raster) <- values
       # -------------------------------------------------------------------------------------
 
@@ -713,13 +683,10 @@ Start_From_Supplied_Raster <- function(out_dir,
     }
     if(export_as_grid == TRUE){
       # -------------------------------------------------------------------------------------
-      values <- c()
-      for(i in 1:ncell(starting_raster)){
-
-        xy <- st_sfc(st_point(xyFromCell(starting_raster,i)), crs = crs(model_grid))
-        values <- append(values, st_intersection(model_grid,xy)$UPDATED_VALUE)
-
-      }
+      xy <- xyFromCell(starting_raster,1:ncell(starting_raster)) %>%
+        as.data.frame() %>%
+        st_as_sf(coords = c('x','y'), crs = crs(model_grid))
+      values <- st_intersection(model_grid,xy)$UPDATED_VALUE
       values(starting_raster) <- values
       raster <<- starting_raster
       # -------------------------------------------------------------------------------------
@@ -727,7 +694,6 @@ Start_From_Supplied_Raster <- function(out_dir,
   }
 }
 # -------------------------------------------------------------------------------------
-
 
 
 
@@ -841,7 +807,7 @@ Reconstruct_Grid <- function(grid_dims,
 #          labels = round(export_long$UPDATED_VALUE[i],1),
 #          col = 'red')
 #   }
-#   
+# 
 # }
 # legend(x = 'topleft',
 #        legend = c('Model Grid', 'Intersecting Shapefile'),
@@ -878,7 +844,6 @@ Reconstruct_Grid <- function(grid_dims,
 #        pch = c(NA,NA,15),
 #        cex = 1.3)
 # # -------------------------------------------------------------------------------------
-
 
 
 
