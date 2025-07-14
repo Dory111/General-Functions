@@ -8,6 +8,7 @@ Attribute_Grid_By_SHP <- function(out_dir,
                                   out_name,
                                   shapefile,
                                   model_grid,
+                                  cell_area = NULL,
                                   hru_id_column,
                                   replacement_value = NULL,
                                   starting_values = NULL,
@@ -64,6 +65,11 @@ Attribute_Grid_By_SHP <- function(out_dir,
     warning(paste0('\nAttribute_Grid_By_SHP: Only one grid dimension specified',
                    '\ngrid_dims[1] will be used for both dimensions'))
   }
+  
+  if(is.null(cell_area) == TRUE){
+    warning(paste0('\nAttribute_Grid_By_SHP: No Cell area supplied',
+                   '\ncalculating based on first grid cell encountered (grid[1, ])'))
+  }
   # -------------------------------------------------------------------------------------
   
   
@@ -81,6 +87,7 @@ Attribute_Grid_By_SHP <- function(out_dir,
                            out_name,
                            shapefile,
                            model_grid,
+                           cell_area,
                            hru_id_column,
                            replacement_value,
                            starting_values,
@@ -103,6 +110,7 @@ Attribute_Grid_By_SHP <- function(out_dir,
                                       out_name,
                                       shapefile,
                                       model_grid,
+                                      cell_area,
                                       hru_id_column,
                                       replacement_value,
                                       starting_values,
@@ -161,6 +169,7 @@ Start_From_Null_Grid <- function(out_dir,
                                  out_name,
                                  shapefile,
                                  model_grid,
+                                 cell_area,
                                  hru_id_column,
                                  replacement_value,
                                  starting_values,
@@ -181,7 +190,11 @@ Start_From_Null_Grid <- function(out_dir,
   original_colnames <- append(original_colnames, 'UPDATED_VALUE')
   model_grid$DUMMY_ID <- c(1:nrow(model_grid))
   model_grid$UPDATED_VALUE <- rep(null_value,nrow(model_grid))
-  cell_area <- st_area(model_grid[1,])
+  
+  if(is.null(cell_area) == TRUE){
+    cell_area <- st_area(model_grid[1,])
+  }
+  
   starting_raster <- Reconstruct_Grid(grid_dims,
                                       null_value,
                                       model_grid)
@@ -318,6 +331,7 @@ Start_From_Supplied_Long_Format <- function(out_dir,
                                             out_name,
                                             shapefile,
                                             model_grid,
+                                            cell_area,
                                             hru_id_column,
                                             replacement_value,
                                             starting_values,
@@ -345,7 +359,11 @@ Start_From_Supplied_Long_Format <- function(out_dir,
                                         starting_values,
                                         model_grid)
   }
-  cell_area <- st_area(model_grid[1,])
+  
+  if(is.null(cell_area) == TRUE){
+    cell_area <- st_area(model_grid[1,])
+  }
+  
   intersected_model_grid <- st_intersection(model_grid,
                                             shapefile)
   intersected_model_grid$Percent_Area <- as.numeric(round((st_area(intersected_model_grid)/cell_area) * 100,1))
