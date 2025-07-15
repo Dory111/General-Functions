@@ -1,9 +1,50 @@
+# Written By:
+#     ___         ___         ___                   ___                  _____        ___         ___               
+#    /  /\       /__/\       /  /\      ___        /  /\                /  /::\      /  /\       /  /\        ___   
+#   /  /:/       \  \:\     /  /::\    /  /\      /  /:/_              /  /:/\:\    /  /::\     /  /::\      /__/|  
+#  /  /:/         \__\:\   /  /:/\:\  /  /:/     /  /:/ /\            /  /:/  \:\  /  /:/\:\   /  /:/\:\    |  |:|  
+# /  /:/  ___ ___ /  /::\ /  /:/~/:/ /__/::\    /  /:/ /::\          /__/:/ \__\:|/  /:/  \:\ /  /:/~/:/    |  |:|  
+#/__/:/  /  //__/\  /:/\:/__/:/ /:/__\__\/\:\__/__/:/ /:/\:\         \  \:\ /  /:/__/:/ \__\:/__/:/ /:/_____|__|:|  
+#\  \:\ /  /:\  \:\/:/__\\  \:\/:::::/  \  \:\/\  \:\/:/~/:/          \  \:\  /:/\  \:\ /  /:\  \:\/:::::/__/::::\  
+# \  \:\  /:/ \  \::/     \  \::/~~~~    \__\::/\  \::/ /:/            \  \:\/:/  \  \:\  /:/ \  \::/~~~~   ~\~~\:\ 
+#  \  \:\/:/   \  \:\      \  \:\        /__/:/  \__\/ /:/              \  \::/    \  \:\/:/   \  \:\         \  \:\
+#   \  \::/     \  \:\      \  \:\       \__\/     /__/:/                \__\/      \  \::/     \  \:\         \__\/
+#    \__\/       \__\/       \__\/                 \__\/                             \__\/       \__\/              
+#   
+# 7/15/2025
+#===============================================================================
+# Runs at approximately 1 second per 1000 grid cells
+##### Description of Variables #####
+# out_dir: string with forward slashes, describes where to save files
+# out_name: string with no '.' extension, describes name to give to output files
+# shapefile: Anything with a '$geometry' column. Describes a shapefile to intersect with model grid
+# model_grid: Anything with a '$geometry' column and column of ID values for the grid. Describes polygons of model grid (5 vertices)[v1,v2,v3,v4,v1]
+# cell_area: numeric value [m^2] describing the area of each cell. Used when calculating what percent of cell is intersected by shapefile.
+# hru_id_column: numeric, describes what column number in the model_grid to find the IDs of the grid cells
+# replacement_value: numeric, describes a single number to replace the starting values with
+# starting_values: either SpatRaster, RasterLayer, or vector. length of vector or number of raster cells must be equal to number of model grid cells.
+#                     Describes the starting cell values to modify
+# export_as_grid: boolean, describes whether to export results as a '.tif' raster
+# export_long_format: boolean, describes whether to export results as a two column csv (ID,Values)
+# is_raster: boolean, describes whether the starting_values is a raster or a vector
+# grid_dims: vector of numeric, described in c(rows, columns) the dimensions of the model grid
+# null_value: describes the value to give cells with no intersection with the shape file if no starting values are supplied
+# engulf: boolean, describes whether model gridcells need to be completly covered by shapefile in order for their values to be updated
+# partial_fact: numeric range 0-100, describes above what percentage the cell needs to be covered in order to have its values updated
+#                 if engulf == FALSE
+# scale_by_intersected_area: boolean, if false all cells above partial_fact coverage will be set to the replacement value. If true all cells
+#                                above partial fact will have value scaled between starting and replacement value based on how much of cell is covered
+# example: boolean, if running example code set to true, else set to false
+###### Purpose of Program #####
+#
+#
+#
+#
+#
+#===============================================================================
 ###########################################################################################
 ############################## MAIN FUNCTION ##############################################
 ###########################################################################################
-#===============================================================================
-# Placeholder
-#===============================================================================
 Attribute_Grid_By_SHP <- function(out_dir,
                                   out_name,
                                   shapefile,
