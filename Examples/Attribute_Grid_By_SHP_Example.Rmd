@@ -1,16 +1,29 @@
+---
+title: "GridModificationExample"
+author: "Christopher Dory"
+date: "2025-07-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#===========================================================================================
+# Requirements Load
+#===========================================================================================
+library(sf)
+library(sp)
+library(raster)
+library(terra)
+library(lubridate)
+library(stringr)
+library(dplyr)
+library(DT)
+library(zoo)
+library(colorspace)
+```
+
+```{r code, include = FALSE, warning = FALSE, error = FALSE}
 # Written By:
-#     ___         ___         ___                   ___                  _____        ___         ___               
-#    /  /\       /__/\       /  /\      ___        /  /\                /  /::\      /  /\       /  /\        ___   
-#   /  /:/       \  \:\     /  /::\    /  /\      /  /:/_              /  /:/\:\    /  /::\     /  /::\      /__/|  
-#  /  /:/         \__\:\   /  /:/\:\  /  /:/     /  /:/ /\            /  /:/  \:\  /  /:/\:\   /  /:/\:\    |  |:|  
-# /  /:/  ___ ___ /  /::\ /  /:/~/:/ /__/::\    /  /:/ /::\          /__/:/ \__\:|/  /:/  \:\ /  /:/~/:/    |  |:|  
-#/__/:/  /  //__/\  /:/\:/__/:/ /:/__\__\/\:\__/__/:/ /:/\:\         \  \:\ /  /:/__/:/ \__\:/__/:/ /:/_____|__|:|  
-#\  \:\ /  /:\  \:\/:/__\\  \:\/:::::/  \  \:\/\  \:\/:/~/:/          \  \:\  /:/\  \:\ /  /:\  \:\/:::::/__/::::\  
-# \  \:\  /:/ \  \::/     \  \::/~~~~    \__\::/\  \::/ /:/            \  \:\/:/  \  \:\  /:/ \  \::/~~~~   ~\~~\:\ 
-#  \  \:\/:/   \  \:\      \  \:\        /__/:/  \__\/ /:/              \  \::/    \  \:\/:/   \  \:\         \  \:\
-#   \  \::/     \  \:\      \  \:\       \__\/     /__/:/                \__\/      \  \::/     \  \:\         \__\/
-#    \__\/       \__\/       \__\/                 \__\/                             \__\/       \__\/              
-#   
+# Chris Dory
 # 7/15/2025
 #===============================================================================
 # Runs at approximately 1 second per 1000 grid cells
@@ -363,7 +376,7 @@ Start_From_Null_Grid <- function(out_dir,
       values <- st_intersection(model_grid,xy)$UPDATED_VALUE
       
       values(starting_raster) <- values
-      raster <<- raster
+      example_raster <<- raster
       # -------------------------------------------------------------------------------------
     }
   }
@@ -540,7 +553,7 @@ Start_From_Supplied_Long_Format <- function(out_dir,
       values <- st_intersection(model_grid,xy)$UPDATED_VALUE
 
       values(starting_raster) <- values
-      raster <<- starting_raster
+      example_raster <<- starting_raster
       # -------------------------------------------------------------------------------------
     }
   }
@@ -586,7 +599,10 @@ Start_From_Supplied_Raster <- function(out_dir,
   xy <- xyFromCell(starting_raster,1:ncell(starting_raster)) %>%
     as.data.frame() %>%
     st_as_sf(coords = c('x','y'), crs = crs(model_grid))
-  values <- terra::extract(starting_raster,xyFromCell(starting_raster,1:ncell(starting_raster))) %>% 
+  values <- terra::extract(terra::flip(starting_raster,
+                                       direction = 'horizontal'),
+                           xyFromCell(terra::flip(starting_raster,
+                                       direction = 'horizontal'),1:ncell(starting_raster))) %>% 
     unlist() %>% as.vector()
   values <- rev(values)
   int <- st_intersection(model_grid,xy)$DUMMY_ID
@@ -729,7 +745,7 @@ Start_From_Supplied_Raster <- function(out_dir,
         st_as_sf(coords = c('x','y'), crs = crs(model_grid))
       values <- st_intersection(model_grid,xy)$UPDATED_VALUE
       values(starting_raster) <- values
-      raster <<- starting_raster
+      raster_example <<- starting_raster
       # -------------------------------------------------------------------------------------
     }
   }
@@ -768,3 +784,380 @@ Reconstruct_Grid <- function(grid_dims,
   return(raster)
 }
 # -------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+###########################################################################################
+############################## EXAMPLE FUNCTIONS ##########################################
+###########################################################################################
+#===============================================================================
+# Creates grid for the example
+#===============================================================================
+Create_Example_Model_Grid <- function(){
+  test_grid <- list(rbind(c(-243426, 395081),
+                          c(-243431, 395081),
+                          c(-243431, 395093),
+                          c(-243426, 395093),
+                          c(-243426, 395081))) %>% st_polygon()
+  l <- list()
+  
+  start_pos <- rbind(c(-243426, 395081),
+                     c(-243431, 395081),
+                     c(-243431, 395093),
+                     c(-243426, 395093),
+                     c(-243426, 395081))
+  new_rbind <- start_pos
+  mult <- 1
+  counter <- 1
+  for(i in 1:99){
+    if(i == 1){
+      l[[counter]] <- test_grid
+      counter <- counter + 1
+    }
+    if(i %% 10 == 0 &
+       i > 1 & i != 10){
+      new_rbind <- start_pos
+      new_rbind[,2] <- new_rbind[,2] + 12 * mult
+      new_polygon <- list(new_rbind) %>% st_polygon()
+      mult <- mult + 1
+      l[[counter]] <- new_polygon
+      counter <- counter + 1
+    }else if (i %% 10 == 0 &
+              i > 1 & i == 10){
+      new_rbind[,1] <- new_rbind[,1] + 5
+      new_polygon <- list(new_rbind) %>% st_polygon()
+      l[[counter]] <- new_polygon
+      counter <- counter + 1
+      new_rbind <- start_pos
+      new_rbind[,2] <- new_rbind[,2] + 12 * mult
+      new_polygon <- list(new_rbind) %>% st_polygon()
+      mult <- mult + 1
+      l[[counter]] <- new_polygon
+      counter <- counter + 1
+    }else if (i > 1) {
+      new_rbind[,1] <- new_rbind[,1] + 5
+      new_polygon <- list(new_rbind) %>% st_polygon()
+      l[[counter]] <- new_polygon
+      counter <- counter + 1
+    }
+  }
+  grid <- st_sfc(l,crs = 3310)
+  
+  
+  
+  df <- data.frame(HRUID = c(1:100),
+                   lat = rep(0,100),
+                   lon = rep(1,100))
+  df <- st_as_sf(df, coords = c('lon','lat'), crs = 3310)
+  df$geometry <- grid
+  grid <- df
+  return(grid)
+}
+
+
+
+#===============================================================================
+# Creates shapefile for the example
+#===============================================================================
+Create_Example_Shapefile <- function(){
+  x0 <- -243426
+  y0 <- 395081
+  polygon <- rbind(c(x0, y0),
+                  c(x0 + 45, y0 + 20),
+                  c(x0 + 41, y0 + 32),
+                  c(x0 + 20, y0 + 50),
+                  c(x0, y0)) %>% list() %>% st_polygon() %>% st_sfc(crs = 3310)
+  df <- data.frame(ID = 1,
+                   lat = 0,
+                   lon = 1)
+  df <- st_as_sf(df, coords = c('lon','lat'), crs = 3310)
+  df$geometry <- polygon
+  polygon <- df
+  return(polygon)
+}
+
+
+#===============================================================================
+# This function takes in a series of hexadecimal or base r color specifications and
+# gives them alpha values
+#===============================================================================
+Hex_to_RGBA <- function(hex,
+                        Alpha = 1)
+{
+  
+  #-------------------------------------------------------------------------------
+  # Changing to decimal colors
+  hex <- col2rgb(hex)
+  hex <- as.data.frame(hex)
+  hex <- hex/255
+  #-------------------------------------------------------------------------------
+  
+  
+  #-------------------------------------------------------------------------------
+  # if alpha is the same dimensions as the hex data frame
+  # aka 2 alphas are specified for 2 colors then just rbind it
+  # if the rbind cant work because of dimensionality repeat whatever alpha is specified
+  # up to the n colors
+  tryCatch(expr = {
+    
+    hex <- rbind(hex, Alpha)
+    
+  }, 
+  error = function(e) {
+    
+    Alpha <- rep_len(Alpha, ncol(hex))
+    hex <- rbind(hex, Alpha)
+    
+  },
+  warning = function(w) {
+    
+    Alpha <- rep_len(Alpha, ncol(hex))
+    hex <- rbind(hex, Alpha)
+    
+  })
+  #-------------------------------------------------------------------------------
+  
+  
+  
+  #-------------------------------------------------------------------------------
+  # Returning colors as hex
+  color_list <- c()
+  for(col in 1:ncol(hex))
+  {
+    
+    color_list <- append(color_list,
+                         rgb(hex[1,col],
+                             hex[2,col],
+                             hex[3,col],
+                             hex[4,col]))
+    
+  }
+  #-------------------------------------------------------------------------------
+  return(color_list)
+}
+#-------------------------------------------------------------------------------
+
+
+
+###########################################################################################
+############################## EXAMPLE ####################################################
+###########################################################################################
+polygon <- Create_Example_Shapefile()
+grid <- Create_Example_Model_Grid()
+```
+
+
+<br/>
+<br/>
+<br/>
+
+# Starting Conditions
+<br/>
+<br/>
+This displays an example grid with an irregular shapefile overlaid onto it.
+<br/>
+<br/>
+The grid starts with initial values of 1 for each cell, which we want to modify if they intersect with the shapefile
+```{r, priorplot, echo = FALSE, fig.width=8, fig.height = 10, message = FALSE, error = FALSE}
+
+# -------------------------------------------------------------------------------------
+# Plot 1
+# Displays prior condition
+plot(st_geometry(grid),
+     border = 'gray60',
+     main = 'Starting Condition',
+     axes = T)
+
+plot(st_geometry(polygon),
+     border = NA,
+     col = Hex_to_RGBA('dodgerblue3', Alpha = 0.6),
+     add = T)
+for(i in 1:nrow(grid)){
+  text(x = st_centroid(grid$geometry[i])[[1]][1],
+       y = st_centroid(grid$geometry[i])[[1]][2],
+       labels = '1')
+}
+legend(x = 'topleft',
+       legend = c('Model Grid', 'Intersecting Shapefile'),
+       col = c('gray60','dodgerblue3'),
+       lwd = c(3,NA),
+       pch = c(NA,15),
+       cex = 1.3)
+# -------------------------------------------------------------------------------------
+```
+
+
+
+<br/>
+<br/>
+<br/>
+
+# Function Example
+<br/>
+<br/>
+In this case the user wants to replace the 1 values with 3. Values should be replaced if cells have greater than 10% ('partial_fact') of their area overlapped by the shapefile, with their new value scaled by the amount overlapped ('scale_by_intersected_area'). For example a cell 10% overlapped would have 10% of the distance between 1 and 3 (0.2) added to its starting value for a final value of 1.2.
+
+```{r, runfunc, message = FALSE, error = FALSE}
+# -------------------------------------------------------------------------------------
+# Run function
+Attribute_Grid_By_SHP(out_dir = '',
+                      out_name = '',
+                      shapefile = polygon,
+                      model_grid = grid,
+                      hru_id_column = 1,
+                      replacement_value = 3,
+                      starting_values = rep(1,100),
+                      export_as_grid = TRUE,
+                      export_long_format = TRUE,
+                      is_raster = FALSE,
+                      grid_dims = c(10,10),
+                      null_value = 0,
+                      engulf = FALSE,
+                      partial_fact = 10,
+                      scale_by_intersected_area = TRUE,
+                      example = TRUE)
+# -------------------------------------------------------------------------------------
+```
+
+
+<br/>
+<br/>
+<br/>
+
+# Result of Grid Update
+<br/>
+<br/>
+This shows the new values of the grid
+```{r, afterplot, message = FALSE, error = FALSE, echo = FALSE, fig.height = 10, fig.width = 8}
+# -------------------------------------------------------------------------------------
+# Plot 2
+# Displays condition after assigning new values
+plot(st_geometry(grid),
+     border = 'gray60',
+     main = 'Ending Condition',
+     axes = T)
+
+plot(st_geometry(polygon),
+     border = NA,
+     col = Hex_to_RGBA('dodgerblue3', Alpha = 0.6),
+     add = T)
+for(i in 1:nrow(grid)){
+  if(round(export_long$UPDATED_VALUE[i],1) == 1){
+    text(x = st_centroid(grid$geometry[i])[[1]][1],
+         y = st_centroid(grid$geometry[i])[[1]][2],
+         labels = round(export_long$UPDATED_VALUE[i],1))
+  } else {
+    text(x = st_centroid(grid$geometry[i])[[1]][1],
+         y = st_centroid(grid$geometry[i])[[1]][2],
+         labels = round(export_long$UPDATED_VALUE[i],1),
+         col = 'red')
+  }
+
+}
+legend(x = 'topleft',
+       legend = c('Model Grid', 'Intersecting Shapefile'),
+       col = c('gray60','dodgerblue3'),
+       lwd = c(3,NA),
+       pch = c(NA,15),
+       cex = 1.3)
+# -------------------------------------------------------------------------------------
+```
+
+
+<br/>
+<br/>
+<br/>
+
+# Export as Raster
+The code can also export the modified grid as a raster format (.tif)
+```{r plotraster, message = FALSE, error = FALSE, echo = FALSE, fig.height = 10, fig.width = 8}
+# -------------------------------------------------------------------------------------
+# Plot 3
+plot(example_raster,
+     col = rev(sequential_hcl(n = 100, palette = 'Reds')),
+     main = 'Exported As Raster',
+     legend = F)
+plot(st_geometry(grid),
+     border = 'gray60',
+     add = T)
+plot(st_geometry(polygon),
+     border = 'black',
+     col = NA,
+     add = T, lwd = 3)
+for(i in 1:nrow(grid)){
+  text(x = st_centroid(grid$geometry[i])[[1]][1],
+       y = st_centroid(grid$geometry[i])[[1]][2],
+       labels = round(export_long$UPDATED_VALUE[i],1))
+}
+legend(x = -243430,
+       y = 395200,
+       legend = c('Model Grid', 'Intersecting Shapefile','Raster Values'),
+       col = c('gray60','black','red'),
+       lwd = c(3,3,NA),
+       pch = c(NA,NA,15),
+       cex = 1.3)
+# -------------------------------------------------------------------------------------
+```
+
+# Function Example 2
+<br/>
+<br/>
+The function can also take in a raster as the starting values. This time we will set the replacement value to 100, the starting value to the raster we generated above, and cells to only have their value replaced when they are fully engulfed (to make the visualization more obvious).
+In this case the user wants to replace the 1 values with 3. Values should be replaced if cells have greater than 10% ('partial_fact') of their area overlapped by the shapefile, with their new value scaled by the amount overlapped ('scale_by_intersected_area'). For example a cell 10% overlapped would have 10% of the distance between 1 and 3 (0.2) added to its starting value for a final value of 1.2.
+
+
+```{r inputraster, message = FALSE, error = FALSE, fig.height = 10, fig.width = 8}
+# -------------------------------------------------------------------------------------
+# Run function
+Attribute_Grid_By_SHP(out_dir = '',
+                      out_name = '',
+                      shapefile = polygon,
+                      model_grid = grid,
+                      hru_id_column = 1,
+                      replacement_value = 100,
+                      starting_values = example_raster,
+                      export_as_grid = TRUE,
+                      export_long_format = TRUE,
+                      is_raster = TRUE,
+                      grid_dims = c(10,10),
+                      null_value = 0,
+                      engulf = TRUE,
+                      partial_fact = NULL,
+                      scale_by_intersected_area = FALSE,
+                      example = TRUE)
+# -------------------------------------------------------------------------------------
+```
+
+
+```{r, afterinputraster, message = FALSE, error = FALSE, fig.height = 10, fig.width = 8}
+# -------------------------------------------------------------------------------------
+# Plot 3
+plot(example_raster,
+     col = rev(sequential_hcl(n = 100, palette = 'Reds')),
+     main = 'Exported As Raster',
+     legend = F)
+plot(st_geometry(grid),
+     border = 'gray60',
+     add = T)
+plot(st_geometry(polygon),
+     border = 'black',
+     col = NA,
+     add = T, lwd = 3)
+for(i in 1:nrow(grid)){
+  text(x = st_centroid(grid$geometry[i])[[1]][1],
+       y = st_centroid(grid$geometry[i])[[1]][2],
+       labels = round(export_long$UPDATED_VALUE[i],1))
+}
+legend(x = -243430,
+       y = 395200,
+       legend = c('Model Grid', 'Intersecting Shapefile','Raster Values'),
+       col = c('gray60','black','red'),
+       lwd = c(3,3,NA),
+       pch = c(NA,NA,15),
+       cex = 1.3)
+# -------------------------------------------------------------------------------------
+```
