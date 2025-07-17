@@ -20,7 +20,64 @@ library(DT)
 library(zoo)
 library(colorspace)
 ```
+<br/>
+<br/>
 
+# Variable documentation
+<br/>
+<br/>
+
+<b><font size = "3">out_dir</font></b>: string with forward slashes, describes where to save files
+<br/>
+<br/>
+<b><font size = "3">out_name</font></b>: string with no '.' extension, describes name to give to output files
+<br/>
+<br/>
+<b><font size = "3">shapefile</font></b>: Anything with a 'geometry' column. Describes a shapefile to intersect with model grid
+<br/>
+<br/>
+<b><font size = "3">model_grid</font></b>: Anything with a 'geometry' column and column of ID values for the grid. Describes polygons of model grid (5 vertices)[v1,v2,v3,v4,v1]
+<br/>
+<br/>
+<b><font size = "3">cell_area</font></b>: numeric value [m^2] describing the area of each cell. Used when calculating what percent of cell is intersected by shapefile.
+<br/>
+<br/>
+<b><font size = "3">hru_id_column</font></b>: numeric, describes what column number in the model_grid to find the IDs of the grid cells
+<br/>
+<br/>
+<b><font size = "3">replacement_value</font></b>: numeric, describes a single number to replace the starting values with
+<br/>
+<br/>
+<b><font size = "3">starting_values</font></b>: either SpatRaster, RasterLayer, or vector. length of vector or number of raster cells must be equal to number of model grid cells.Describes the starting cell values to modify
+<br/>
+<br/>
+<b><font size = "3">export_as_grid</font></b>: boolean, describes whether to export results as a '.tif' raster
+<br/>
+<br/>
+<b><font size = "3">export_long_format</font></b>: boolean, describes whether to export results as a two column csv (ID,Values)
+<br/>
+<br/>
+<b><font size = "3">is_raster</font></b>: boolean, describes whether the starting_values is a raster or a vector
+<br/>
+<br/>
+<b><font size = "3">grid_dims</font></b>: vector of numeric, described in c(rows, columns) the dimensions of the model grid
+<br/>
+<br/>
+<b><font size = "3">null_value</font></b>: describes the value to give cells with no intersection with the shape file if no starting values are supplied
+<br/>
+<br/>
+<b><font size = "3">engulf</font></b>: boolean, describes whether model gridcells need to be completly covered by shapefile in order for their values to be updated
+<br/>
+<br/>
+<b><font size = "3">partial_fact</font></b>: numeric range 0-100, describes above what percentage the cell needs to be covered in order to have its values updated if engulf == FALSE
+<br/>
+<br/>
+<b><font size = "3">scale_by_intersected_area</font></b>: boolean, if false all cells above partial_fact coverage will be set to the replacement value. If true all cells above partial fact will have value scaled between starting and replacement value based on how much of cell is covered
+<br/>
+<br/>
+<b><font size = "3">example</font></b>: boolean, if running example code set to true, else set to false
+<br/>
+<br/>
 ```{r code, include = FALSE, warning = FALSE, error = FALSE}
 # Written By:
 # Chris Dory
@@ -1001,7 +1058,7 @@ legend(x = 'topleft',
 <br/>
 In this case the user wants to replace the 1 values with 3. Values should be replaced if cells have greater than 10% ('partial_fact') of their area overlapped by the shapefile, with their new value scaled by the amount overlapped ('scale_by_intersected_area'). For example a cell 10% overlapped would have 10% of the distance between 1 and 3 (0.2) added to its starting value for a final value of 1.2.
 
-```{r, runfunc, message = FALSE, error = FALSE}
+```{r, runfunc, warning = FALSE, message = FALSE, error = FALSE, results = 'hide'}
 # -------------------------------------------------------------------------------------
 # Run function
 Attribute_Grid_By_SHP(out_dir = '',
@@ -1110,7 +1167,7 @@ The function can also take in a raster as the starting values. This time we will
 In this case the user wants to replace the 1 values with 3. Values should be replaced if cells have greater than 10% ('partial_fact') of their area overlapped by the shapefile, with their new value scaled by the amount overlapped ('scale_by_intersected_area'). For example a cell 10% overlapped would have 10% of the distance between 1 and 3 (0.2) added to its starting value for a final value of 1.2.
 
 
-```{r inputraster, message = FALSE, error = FALSE, fig.height = 10, fig.width = 8}
+```{r inputraster, message = FALSE, warning = FALSE, error = FALSE, results = 'hide'}
 # -------------------------------------------------------------------------------------
 # Run function
 Attribute_Grid_By_SHP(out_dir = '',
@@ -1133,7 +1190,7 @@ Attribute_Grid_By_SHP(out_dir = '',
 ```
 
 
-```{r, afterinputraster, message = FALSE, error = FALSE, fig.height = 10, fig.width = 8}
+```{r, afterinputraster, echo = FALSE, message = FALSE, error = FALSE, fig.height = 10, fig.width = 8}
 # -------------------------------------------------------------------------------------
 # Plot 3
 plot(example_raster,
