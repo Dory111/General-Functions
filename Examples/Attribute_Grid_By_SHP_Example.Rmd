@@ -433,7 +433,7 @@ Start_From_Null_Grid <- function(out_dir,
       values <- st_intersection(model_grid,xy)$UPDATED_VALUE
       
       values(starting_raster) <- values
-      example_raster <<- raster
+      rasteer_example <<- raster
       # -------------------------------------------------------------------------------------
     }
   }
@@ -610,7 +610,7 @@ Start_From_Supplied_Long_Format <- function(out_dir,
       values <- st_intersection(model_grid,xy)$UPDATED_VALUE
 
       values(starting_raster) <- values
-      example_raster <<- starting_raster
+      raster_example <<- starting_raster
       # -------------------------------------------------------------------------------------
     }
   }
@@ -1134,10 +1134,10 @@ The code can also export the modified grid as a raster format (.tif)
 ```{r plotraster, message = FALSE, error = FALSE, echo = FALSE, fig.height = 10, fig.width = 8}
 # -------------------------------------------------------------------------------------
 # Plot 3
-plot(example_raster,
+plot(raster_example,
      col = rev(sequential_hcl(n = 100, palette = 'Reds')),
      main = 'Exported As Raster',
-     legend = F)
+     legend = T)
 plot(st_geometry(grid),
      border = 'gray60',
      add = T)
@@ -1176,7 +1176,7 @@ Attribute_Grid_By_SHP(out_dir = '',
                       model_grid = grid,
                       hru_id_column = 1,
                       replacement_value = 100,
-                      starting_values = example_raster,
+                      starting_values = raster_example,
                       export_as_grid = TRUE,
                       export_long_format = TRUE,
                       is_raster = TRUE,
@@ -1193,10 +1193,10 @@ Attribute_Grid_By_SHP(out_dir = '',
 ```{r, afterinputraster, echo = FALSE, message = FALSE, error = FALSE, fig.height = 10, fig.width = 8}
 # -------------------------------------------------------------------------------------
 # Plot 3
-plot(example_raster,
+plot(raster_example,
      col = rev(sequential_hcl(n = 100, palette = 'Reds')),
      main = 'Exported As Raster',
-     legend = F)
+     legend = T)
 plot(st_geometry(grid),
      border = 'gray60',
      add = T)
