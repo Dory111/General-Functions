@@ -586,7 +586,10 @@ Start_From_Supplied_Raster <- function(out_dir,
   xy <- xyFromCell(starting_raster,1:ncell(starting_raster)) %>%
     as.data.frame() %>%
     st_as_sf(coords = c('x','y'), crs = crs(model_grid))
-  values <- terra::extract(starting_raster,xyFromCell(starting_raster,1:ncell(starting_raster))) %>% 
+  values <- terra::extract(terra::flip(starting_raster,
+                                       direction = 'horizontal'),
+                           xyFromCell(terra::flip(starting_raster,
+                                                  direction = 'horizontal'),1:ncell(starting_raster))) %>% 
     unlist() %>% as.vector()
   values <- rev(values)
   int <- st_intersection(model_grid,xy)$DUMMY_ID
