@@ -650,6 +650,12 @@ Start_From_Supplied_Raster <- function(out_dir,
   # -------------------------------------------------------------------------------------
   
   # -------------------------------------------------------------------------------------
+  if(class(starting_raster) == 'RasterLayer'){
+    starting_raster <- rast(starting_raster)
+  } else{}
+  # -------------------------------------------------------------------------------------
+  
+  # -------------------------------------------------------------------------------------
   # Attributing starting value raster to model grid
   # wherever raster does not intersect is set to 0
   # unsure why terra reverses the order of extracted cells
@@ -659,7 +665,7 @@ Start_From_Supplied_Raster <- function(out_dir,
   values <- terra::extract(terra::flip(starting_raster,
                                        direction = 'horizontal'),
                            xyFromCell(terra::flip(starting_raster,
-                                       direction = 'horizontal'),1:ncell(starting_raster))) %>% 
+                                                  direction = 'horizontal'),1:ncell(starting_raster))) %>% 
     unlist() %>% as.vector()
   values <- rev(values)
   int <- st_intersection(model_grid,xy)$DUMMY_ID
@@ -668,7 +674,7 @@ Start_From_Supplied_Raster <- function(out_dir,
   }
   model_grid$UPDATED_VALUE <- model_grid$STARTING_VALUES
   # -------------------------------------------------------------------------------------
-  
+ 
  
   # -------------------------------------------------------------------------------------
   if(is.null(cell_area) == TRUE){

@@ -580,6 +580,12 @@ Start_From_Supplied_Raster <- function(out_dir,
   # -------------------------------------------------------------------------------------
   
   # -------------------------------------------------------------------------------------
+  if(class(starting_raster) == 'RasterLayer'){
+    starting_raster <- rast(starting_raster)
+  } else{}
+  # -------------------------------------------------------------------------------------
+  
+  # -------------------------------------------------------------------------------------
   # Attributing starting value raster to model grid
   # wherever raster does not intersect is set to 0
   # unsure why terra reverses the order of extracted cells
