@@ -22,65 +22,54 @@ Custom_Color_Bar <- function(colors,
   y_seq <- seq(from = ybot, to = ytop, length.out = length(colors))
   m$ybottom <- seq(from = y_seq[1], to = tail(y_seq,2)[1], length.out = length(colors))
   m$ytop <- seq(from = y_seq[2], to = tail(y_seq,1), length.out = length(colors))
-  
+  new_row <- c(xleft,
+               tail(m$ytop,1),
+               xright,
+               tail(m$ytop,1),
+               NA,
+               NA)
   
   m$value <- seq(from = -1, to = 1, length.out = length(colors))
-  
   m$color <- colors
+  y_range <- ytop-ybot
   #-------------------------------------------------------------------------------
 
 
   #-------------------------------------------------------------------------------
-  for(j in 1:nrow(m))
-  {
+  for(j in 1:nrow(m)){
     rect(m$xleft[j],
          m$ybottom[j],
          m$xright[j],
          m$ytop[j],
          col = m$color[j],
          border = NA)
-    
-    
   }
   #-------------------------------------------------------------------------------
   
-  
+  m <- rbind(m,new_row)
   #-------------------------------------------------------------------------------
-  if(labels_TF == T)
-  {
-    if(is.null(labels_text) == T)
-    {
+  if(labels_TF == T){
+    if(is.null(labels_text) == T){
       labels_text <- labels_at
     }
     #-------------------------------------------------------------------------------
-    for(j in 1:length(labels_at))
-    {
-      #-------------------------------------------------------------------------------
-      if(j == 1)
-      {
-        
-        vec <- at[j] + (-m$value)
-        ind <- which(abs(vec) == min(abs(vec)))
+    for(j in 1:length(labels_at)){
+      if(j == 1){
         lines(x = c(xright, xright + line_length),
-              y = c(m$ybottom[ind],m$ybottom[ind]))
+              y = c(m$ybottom[j] + y_range*0.001,m$ybottom[j]+ y_range*0.001))
         text(x = xright + line_length,
-             y = m$ybottom[ind], 
+             y = m$ybottom[j], 
              pos = 4,
              labels = labels_text[j],
              cex = 1.4)
-        
       } else {
-        
-        vec <- at[j] + (-m$value)
-        ind <- which(abs(vec) == min(abs(vec)))
         lines(x = c(xright, xright + line_length),
-              y = c(m$ytop[ind],m$ytop[ind]))
+              y = c(m$ybottom[j],m$ybottom[j]))
         text(x = xright + line_length,
-             y = m$ytop[ind], 
+             y = m$ybottom[j], 
              pos = 4,
              labels = labels_text[j],
              cex = 1.4)
-        
       }
       #-------------------------------------------------------------------------------
     }
