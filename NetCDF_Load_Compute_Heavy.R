@@ -1,15 +1,27 @@
+# ------------------------------------------------------------------------------------------------
+# Necessary libraries
 library(raster)
 library(sf)
 library(terra)
 library(dplyr)
 library(tidyverse)
+# ------------------------------------------------------------------------------------------------
 
+# ------------------------------------------------------------------------------------------------
 # Example use
 # Extract_100yr_NETCDF(raster_name = 'Test',
 #                      raster_path = file.path(path_wgen,'25_WGEN-A-100yr_Scott Valley.nc'),
 #                      start_date = '2025/01/01', # insert start_date here in YY/MM/DD
 #                      server_mode = T,
 #                      server_path = file.path('home/WGEN/outdir')) # if on server need to specify where outputs will go
+# ------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
 
 
 
@@ -32,16 +44,17 @@ library(tidyverse)
 # would be output as
 # date,1,2,3,4,5,6,7,8
 #===============================================================================
+###########################################################################################
+############################## MAIN FUNCTION ##############################################
+###########################################################################################
 Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
                                  raster_path, # raster object to be passed to the function 
                                  start_date, # input start date from DWR, must be in format YY/MM/DD 
                                  server_mode, # include progress bar elements?
                                  server_path = NA)# if on server need to specify out dir
 {
-  
-  ##############################################################################
-  ####################################### Progress elements ####################
   # ------------------------------------------------------------------------------------------------
+  ############################## PROGRESS ELEMENTS #############################
   # is user on server? if not on server initialize pb elements and set paths relative to dropbox
   if(server_mode == F){
     # ------------------------------------------------------------------------------------------------
@@ -81,21 +94,24 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
     # ------------------------------------------------------------------------------------------------
   } else {
     path_wgen <- server_path
+    cat('\n#####################################################################\n',
+        'Starting NetCDF_Load_Compute_Heavy.R\n\n\n')
+    cat('\n', paste('Reading Raster Outputs...',raster_name[i]),
+        '\n\n\n')
   }
   # ------------------------------------------------------------------------------------------------
   
   
-  ##############################################################################
-  #######################################  Warnings ############################
-  # ------------------------------------------------------------------------------------------------
-  # vertices warning
-  warning('\nExtract_100yr_NETCDF: Assumes all rasters on same grid \n vertices only represent raster[1]')
-  # ------------------------------------------------------------------------------------------------
+
   
   # ------------------------------------------------------------------------------------------------
+  ################################ WARNINGS ####################################
+  # vertices warning
+  warning('\nNetCDF_Load_Compute_Heavy: Assumes all rasters on same grid \n vertices only represent raster[1]')
+  
   # Length warning
   if(length(raster_path) != length(raster_name)){
-    warning('\nExtract_100yr_NETCDF: # names != # rasters \nfirst name will be iterated')
+    warning('\nNetCDF_Load_Compute_Heavy: # names != # rasters \nfirst name will be iterated')
     
     raster_name <- paste0(raster_name[1],'_',str_pad(string = seq(1:length(raster_path)),
                                                      width = 4, side = 'left', pad = 0))
@@ -105,10 +121,10 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
   
   
   
-  ##############################################################################
-  ################################## Loop over Rasters #########################
   # ------------------------------------------------------------------------------------------------
-  # for each raster to be loaded
+  ################################## LOOP OVER RASTERS #########################
+  # for each raster to be loaded get the vertices
+  # as stated in warning vertices assumed to be static
   xy <- rast(raster_path[1])
   xy <- xyFromCell(xy[[1]],0:ncell(xy[[1]])) %>% as.data.frame()
   xy <- xy[-c(1),]
@@ -119,7 +135,7 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
     
     if(class(raster)[1] != 'SpatRaster' &
        class(raster)[1] != 'RasterLayer'){
-      stop('\nExtract_100yr_NETCDF: DATA NOT IN FORM OF RASTER')
+      stop('\nNetCDF_Load_Compute_Heavy: DATA NOT IN FORM OF RASTER')
     } else if(class(raster)[1] != 'SpatRaster') {
       raster <- as(raster, 'SpatRaster')
     }
@@ -128,12 +144,12 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
     #-------------------------------------------------------------------------------
     # getting number of variables and number of dates
     variable_names <- varnames(raster)
-    date_table <- sapply(strsplit(names(raster),'='), function(x) x[2]) %>% # gets second element (date) of each list object
+    date_table <- sapply(strsplit(names(raster),'='),
+                         function(x) x[2]) %>% # gets second element (date) of each list object
       as.numeric() %>%
       table()
     date_seq <- as.numeric(names(date_table))
     #-------------------------------------------------------------------------------
-    
     
     #-------------------------------------------------------------------------------
     # code loops over every variable name,
@@ -146,6 +162,7 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
                      ncol = (ncell(raster)),
                      data = as.vector(unlist(raster[[start:(length(date_seq)*j)]][1:ncell(raster)])),
                      byrow = T) %>% as.data.frame()
+      
       rows$date <- date_seq
       rows$date <- as.Date(rows$date + as.numeric(as.Date(start_date)))
       rows <- rows[,c(ncol(rows),2:(ncol(rows)-1))]
@@ -153,7 +170,8 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
-      # is user on server
+      # Intermediate progress bar elements depending on whether user is calling from
+      # server
       if(server_mode == F){
         #-------------------------------------------------------------------------------
         # pb elements
@@ -172,7 +190,7 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
-      # Bind Results and writeout
+      # Bind Results and writeout each variable
       dir.create(file.path(path_wgen,'CSV Summaries',raster_name))
       write.csv(rows,
                 file.path(path_wgen,'CSV Summaries',raster_name,paste0(raster_name,'_',variable_names[j],'.csv')),
@@ -181,13 +199,21 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
     }
     #-------------------------------------------------------------------------------
   }
+  # ------------------------------------------------------------------------------------------------
+  
+  
+  
   
   # ------------------------------------------------------------------------------------------------
+  # Exit progress bar elements
   if(server_mode == FALSE){
+    Sys.sleep(0.2)
     close(pb)  
-  } else {}
-  # ------------------------------------------------------------------------------------------------
-  
+  } else {
+    cat(raster_name[i],'Complete \n\n\n')
+    cat(paste0('\nExited Starting NetCDF_Load_Compute_Heavy.R without error\n',
+               '#####################################################################\n\n\n'))
+  }
   # ------------------------------------------------------------------------------------------------
   
   #-------------------------------------------------------------------------------
