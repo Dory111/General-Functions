@@ -50,9 +50,34 @@ library(tidyverse)
 Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
                                  raster_path, # raster object to be passed to the function 
                                  start_date, # input start date from DWR, must be in format YY/MM/DD 
-                                 server_mode, # include progress bar elements?
-                                 server_path = NA)# if on server need to specify out dir
+                                 alternate_wgen_path = NULL, # direct writeout to nonstandard directory?
+                                 server_mode = FALSE, # include progress bar elements?
+                                 server_path = NULL)# if on server need to specify out dir
 {
+  # -------------------------------------------------------------------------------------
+  ################# ERROR HANDLING ######################################################
+  if(server_mode == TRUE & is.null(server_path) == TRUE){
+    stop(paste0('\nNetCDF_Load_Compute_Heavy: SERVER WRITEOUT DIRECTORY (server_path)',
+                '\nMUST BE SPECIFIED IF [CONDITION] (server_mode == TRUE)'))
+  }
+  # -------------------------------------------------------------------------------------
+  
+  
+  # ------------------------------------------------------------------------------------------------
+  ################################ WARNINGS ####################################
+  # vertices warning
+  warning('\nNetCDF_Load_Compute_Heavy: Assumes all rasters on same grid \n vertices only represent raster[1]')
+  
+  # Length warning
+  if(length(raster_path) != length(raster_name)){
+    warning('\nNetCDF_Load_Compute_Heavy: # names != # rasters \nfirst name will be iterated')
+    
+    raster_name <- paste0(raster_name[1],'_',str_pad(string = seq(1:length(raster_path)),
+                                                     width = 4, side = 'left', pad = 0))
+  }
+  # ------------------------------------------------------------------------------------------------
+  
+  
   # ------------------------------------------------------------------------------------------------
   ############################## PROGRESS ELEMENTS #############################
   # is user on server? if not on server initialize pb elements and set paths relative to dropbox
@@ -77,11 +102,18 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
     # ------------------------------------------------------------------------------------------------
     
     # ------------------------------------------------------------------------------------------------
-    # sysinfo
-    username=Sys.info()[["user"]]
-    dropbox_dir=paste0("C:/Users/",username,"/LWA Dropbox/")
-    path_prms <- file.path(dropbox_dir,'00_Project-Repositories','00598-PRMS-Modeling')
-    path_wgen <- file.path(path_prms,'shared_data','WGEN')
+    # does user want to writeout to a path other than the standard dropbox directory?
+    if(is.null(alternate_wgen_path) == FALSE){
+      path_wgen <- alternate_wgen_path
+    } else {
+      # ------------------------------------------------------------------------------------------------
+      # sysinfo
+      username=Sys.info()[["user"]]
+      dropbox_dir=paste0("C:/Users/",username,"/LWA Dropbox/")
+      path_prms <- file.path(dropbox_dir,'00_Project-Repositories','00598-PRMS-Modeling')
+      path_wgen <- file.path(path_prms,'shared_data','WGEN')
+      # ------------------------------------------------------------------------------------------------
+    }
     # ------------------------------------------------------------------------------------------------
     
     # ------------------------------------------------------------------------------------------------
@@ -104,19 +136,7 @@ Extract_100yr_NETCDF <- function(raster_name, # name of exported .csv files
   
 
   
-  # ------------------------------------------------------------------------------------------------
-  ################################ WARNINGS ####################################
-  # vertices warning
-  warning('\nNetCDF_Load_Compute_Heavy: Assumes all rasters on same grid \n vertices only represent raster[1]')
   
-  # Length warning
-  if(length(raster_path) != length(raster_name)){
-    warning('\nNetCDF_Load_Compute_Heavy: # names != # rasters \nfirst name will be iterated')
-    
-    raster_name <- paste0(raster_name[1],'_',str_pad(string = seq(1:length(raster_path)),
-                                                     width = 4, side = 'left', pad = 0))
-  }
-  # ------------------------------------------------------------------------------------------------
   
   
   
