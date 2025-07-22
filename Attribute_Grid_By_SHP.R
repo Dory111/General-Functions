@@ -334,19 +334,18 @@ Start_From_Null_Grid <- function(out_dir,
                append = FALSE)
       # -------------------------------------------------------------------------------------
       
-    } else if(export_long_format == TRUE){
+    } 
+    
+    if(export_long_format == TRUE){
       
       # -------------------------------------------------------------------------------------
       cat(paste0('\nExporting as csv at dsn\n',file.path(out_dir,out_name),'\n\n\n'))
       export_long <- data.frame(HRU_ID = as.vector(unlist(st_drop_geometry(model_grid[hru_id_column]))),
                                 UPDATED_VALUE = as.vector(unlist(model_grid$UPDATED_VALUE)))
-      export_long <- export_long[order(export_long$HRU_ID, decreasing = FALSE)]
+      export_long <- export_long[order(export_long$HRU_ID, decreasing = FALSE), ]
       write.csv(x = export_long,
                 file = file.path(out_dir,paste0(out_name,'.csv')),
                 row.names = FALSE)
-      st_write(obj = model_grid,
-               dsn = file.path(out_dir,paste0(out_name,'.shp')),
-               append = FALSE)
       # -------------------------------------------------------------------------------------
     }
     # -------------------------------------------------------------------------------------
@@ -511,19 +510,18 @@ Start_From_Supplied_Long_Format <- function(out_dir,
                append = FALSE)
       # -------------------------------------------------------------------------------------
       
-    } else if(export_long_format == TRUE){
+    }
+    
+    if(export_long_format == TRUE){
       
       # -------------------------------------------------------------------------------------
       cat(paste0('\nExporting as csv at dsn\n',file.path(out_dir,out_name),'\n\n\n'))
       export_long <- data.frame(HRU_ID = as.vector(unlist(st_drop_geometry(model_grid[hru_id_column]))),
                                 UPDATED_VALUE = as.vector(unlist(model_grid$UPDATED_VALUE)))
-      export_long <- export_long[order(export_long$HRU_ID, decreasing = FALSE)]
+      export_long <- export_long[order(export_long$HRU_ID, decreasing = FALSE), ]
       write.csv(x = export_long,
                 file = file.path(out_dir,paste0(out_name,'.csv')),
                 row.names = FALSE)
-      st_write(obj = model_grid,
-               dsn = file.path(out_dir,paste0(out_name,'.shp')),
-               append = FALSE)
       # -------------------------------------------------------------------------------------
     }
     # -------------------------------------------------------------------------------------
@@ -710,19 +708,18 @@ Start_From_Supplied_Raster <- function(out_dir,
                append = FALSE)
       # -------------------------------------------------------------------------------------
 
-    } else if(export_long_format == TRUE){
+    } 
+    
+    if(export_long_format == TRUE){
 
       # -------------------------------------------------------------------------------------
       cat(paste0('\nExporting as csv at dsn\n',file.path(out_dir,out_name),'\n\n\n'))
       export_long <- data.frame(HRU_ID = as.vector(unlist(st_drop_geometry(model_grid[hru_id_column]))),
                                 UPDATED_VALUE = as.vector(unlist(model_grid$UPDATED_VALUE)))
-      export_long <- export_long[order(export_long$HRU_ID, decreasing = FALSE)]
+      export_long <- export_long[order(export_long$HRU_ID, decreasing = FALSE), ]
       write.csv(x = export_long,
                 file = file.path(out_dir,paste0(out_name,'.csv')),
                 row.names = FALSE)
-      st_write(obj = model_grid,
-               dsn = file.path(out_dir,paste0(out_name,'.shp')),
-               append = FALSE)
       # -------------------------------------------------------------------------------------
     }
     # -------------------------------------------------------------------------------------
