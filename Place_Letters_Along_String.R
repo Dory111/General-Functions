@@ -18,7 +18,7 @@ Place_Letters_Along_String <- function(offset = 1,
   
   # -------------------------------------------------------------------------------------
   # error
-  if(nchar(letters) > (length(verts[[1]]) + initial_point_skip)){
+  if((nchar(letters) + initial_point_skip) > length(verts[[1]])){
     stop(paste('LABELS_ALONG_STRING:\n\n',
                'Number of points supplied is less than the number of characters\n\n',
                'and the supplied number of skipped points'))
@@ -71,8 +71,8 @@ Place_Letters_Along_String <- function(offset = 1,
         
         # -------------------------------------------------------------------------------------
         # is angle valid? (point 1 != point 2 etc)
-        if(is.nan(angle) == FALSE){
-          
+        if(is.nan(angle_unsigned) == FALSE){
+
           letter_vertices[[3]] <- append(letter_vertices[[3]],
                                          char)
           letter_vertices[[4]] <- append(letter_vertices[[4]],
