@@ -7,6 +7,9 @@
 Place_Letters_Along_String <- function(offset = 1,
                                        verts,
                                        letters = 'Test',
+                                       user_supplied_crs = 4326,
+                                       dist_norm = 1000,
+                                       points_list = NULL,
                                        initial_point_skip = 4,
                                        between_point_skip = 1,
                                        repeat_name_n = 1,
@@ -29,6 +32,18 @@ Place_Letters_Along_String <- function(offset = 1,
                'and the supplied number of skipped points'))
   }
   # -------------------------------------------------------------------------------------
+  # 
+  # removde_vertices_constant_spacing <- Remove_Linestring_Points_By_Proximity(points_list = Extract_SF_Linestring_Vertices(Flowlines$geometry[10]),
+  #                                                                            user_supplied_crs = 4326,
+  #                                                                            dist_norm = 1000)
+  # 
+  # 
+  # 
+  # 
+  
+  
+  
+  
   
   # -------------------------------------------------------------------------------------
   # repeat along length of string
@@ -90,11 +105,8 @@ Place_Letters_Along_String <- function(offset = 1,
                                          angle_signed)
           # -------------------------------------------------------------------------------------
           
-          
-          ########################################################################################
-          ################################## USER WANTS TEXT ABOVE ###############################
-          ########################################################################################
           # -------------------------------------------------------------------------------------
+          # USER WANTS TEXT ABOVE
           if(text_position == 'above'){
             output <- Place_Text_Above(x1 = x1,
                                        y1 = y1,
@@ -108,11 +120,8 @@ Place_Letters_Along_String <- function(offset = 1,
           # -------------------------------------------------------------------------------------
   
           
-          
-          ########################################################################################
-          ################################## USER WANTS TEXT BELOW ###############################
-          ########################################################################################
           # -------------------------------------------------------------------------------------
+          # USER WANTS TEXT BELOW
           if(text_position == 'below'){
             output <- Place_Text_Below(x1 = x1,
                                        y1 = y1,
@@ -125,6 +134,13 @@ Place_Letters_Along_String <- function(offset = 1,
           }
           # -------------------------------------------------------------------------------------
           
+          # -------------------------------------------------------------------------------------
+          # USER WANTS TEXT CENTERED
+          if(text_position == 'center'){
+            y3 <- ((y1+y2)/2)
+            x3 <- ((x1+x2)/2)
+          }
+          # -------------------------------------------------------------------------------------
           
           # -------------------------------------------------------------------------------------
           # Append updated coordinates
