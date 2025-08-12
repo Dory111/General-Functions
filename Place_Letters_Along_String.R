@@ -4,12 +4,11 @@
 #===========================================================================================
 # places letters along irregular string
 #===========================================================================================
-Place_Letters_Along_String <- function(offset = 1,
+Place_Letters_Along_String <- function(offset = 0.0001,
                                        verts,
                                        letters = 'Test',
                                        user_supplied_crs = 4326,
                                        dist_norm = 1000,
-                                       points_list = NULL,
                                        initial_point_skip = 4,
                                        between_point_skip = 1,
                                        repeat_name_n = 1,
@@ -32,19 +31,7 @@ Place_Letters_Along_String <- function(offset = 1,
                'and the supplied number of skipped points'))
   }
   # -------------------------------------------------------------------------------------
-  # 
-  # removde_vertices_constant_spacing <- Remove_Linestring_Points_By_Proximity(points_list = Extract_SF_Linestring_Vertices(Flowlines$geometry[10]),
-  #                                                                            user_supplied_crs = 4326,
-  #                                                                            dist_norm = 1000)
-  # 
-  # 
-  # 
-  # 
-  
-  
-  
-  
-  
+
   # -------------------------------------------------------------------------------------
   # repeat along length of string
   repeat_counter <- 0
@@ -62,7 +49,7 @@ Place_Letters_Along_String <- function(offset = 1,
                           i,
                           i)
         # -------------------------------------------------------------------------------------
-        
+  
         # -------------------------------------------------------------------------------------
         # coords of stream points
         x1 <- verts[[2]][initial_point_skip + letter_counter]
@@ -70,7 +57,7 @@ Place_Letters_Along_String <- function(offset = 1,
         y1 <- verts[[1]][initial_point_skip + letter_counter]
         y2 <- verts[[1]][initial_point_skip + letter_counter + 1]
         # -------------------------------------------------------------------------------------
-        
+  
         # -------------------------------------------------------------------------------------
         # coords of horizontal comparison line
         x3 <- verts[[2]][initial_point_skip + letter_counter]
@@ -78,25 +65,25 @@ Place_Letters_Along_String <- function(offset = 1,
         y3 <- verts[[1]][initial_point_skip + letter_counter]
         y4 <- verts[[1]][initial_point_skip + letter_counter]
         # -------------------------------------------------------------------------------------
-        
+  
         # -------------------------------------------------------------------------------------
         angle_unsigned <- angles_between_two_vectors(V = c(x1,x2,y1,y2),
                                                      U = c(x3,x4+1,y3,y4),
                                                      signed = FALSE)
-        
+  
         angle_signed <- angles_between_two_vectors(V = c(x1,x2,y1,y2),
                                                    U = c(x3,x4+1,y3,y4),
                                                    signed = TRUE)
         # -------------------------------------------------------------------------------------
-        
-        
+  
+  
         ########################################################################################
         ##################################### IS ANGLE VALID ###################################
         ########################################################################################
         # -------------------------------------------------------------------------------------
         # is angle valid? (point 1 != point 2 etc)
         if(is.nan(angle_unsigned) == FALSE){
-
+  
           # -------------------------------------------------------------------------------------
           # append character and character rotation angle
           letter_vertices[[3]] <- append(letter_vertices[[3]],
@@ -104,7 +91,7 @@ Place_Letters_Along_String <- function(offset = 1,
           letter_vertices[[4]] <- append(letter_vertices[[4]],
                                          angle_signed)
           # -------------------------------------------------------------------------------------
-          
+  
           # -------------------------------------------------------------------------------------
           # USER WANTS TEXT ABOVE
           if(text_position == 'above'){
@@ -119,7 +106,7 @@ Place_Letters_Along_String <- function(offset = 1,
           }
           # -------------------------------------------------------------------------------------
   
-          
+  
           # -------------------------------------------------------------------------------------
           # USER WANTS TEXT BELOW
           if(text_position == 'below'){
@@ -133,7 +120,7 @@ Place_Letters_Along_String <- function(offset = 1,
             x3 <- output[[2]]
           }
           # -------------------------------------------------------------------------------------
-          
+  
           # -------------------------------------------------------------------------------------
           # USER WANTS TEXT CENTERED
           if(text_position == 'center'){
@@ -141,7 +128,7 @@ Place_Letters_Along_String <- function(offset = 1,
             x3 <- ((x1+x2)/2)
           }
           # -------------------------------------------------------------------------------------
-          
+  
           # -------------------------------------------------------------------------------------
           # Append updated coordinates
           letter_vertices[[1]] <- append(letter_vertices[[1]],
@@ -157,6 +144,14 @@ Place_Letters_Along_String <- function(offset = 1,
     # -------------------------------------------------------------------------------------
     repeat_counter <- repeat_counter + 1
   }
+  # -------------------------------------------------------------------------------------
+
+  # -------------------------------------------------------------------------------------
+  # restructure points to attempt even spacing
+  output <- Remove_Linestring_Points_By_Proximity(points_list = list(letter_vertices[[1]],
+                                                                     letter_vertices[[2]]),
+                                                  user_supplied_crs = user_supplied_crs,
+                                                  dist_norm = dist_norm+1)
   # -------------------------------------------------------------------------------------
   
   # -------------------------------------------------------------------------------------
@@ -261,7 +256,7 @@ Place_Text_Above <- function(x1,
                                              signed = TRUE)
     if(text_angle > 0){
       x3 <- second_try_x2
-      y3 <- second_try_x2
+      y3 <- second_try_y2
       text_position_valid <- TRUE
     }
     # -------------------------------------------------------------------------------------
@@ -290,7 +285,7 @@ Place_Text_Above <- function(x1,
                                              signed = TRUE)
     if(text_angle > 0){
       x3 <- third_try_x2
-      y3 <- third_try_x2
+      y3 <- third_try_y2
       text_position_valid <- TRUE
     }
     # -------------------------------------------------------------------------------------
@@ -394,7 +389,7 @@ Place_Text_Below <- function(x1,
                                              signed = TRUE)
     if(text_angle < 0){
       x3 <- second_try_x2
-      y3 <- second_try_x2
+      y3 <- second_try_y2
       text_position_valid <- TRUE
     }
     # -------------------------------------------------------------------------------------
@@ -423,7 +418,7 @@ Place_Text_Below <- function(x1,
                                              signed = TRUE)
     if(text_angle < 0){
       x3 <- third_try_x2
-      y3 <- third_try_x2
+      y3 <- third_try_y2
       text_position_valid <- TRUE
     }
     # -------------------------------------------------------------------------------------

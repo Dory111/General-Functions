@@ -17,7 +17,6 @@ Remove_Linestring_Points_By_Proximity <- function(user_supplied_crs = 4326,
   # while length not exceeded
   while(counter <= (length(new_x)-1)){
     no_action_add <- 0
-    
     # -------------------------------------------------------------------------------------
     # calculate distance between current and subsequent point
     obj <- st_point(c(new_x[counter],
@@ -33,7 +32,6 @@ Remove_Linestring_Points_By_Proximity <- function(user_supplied_crs = 4326,
     # if no points could be interpolated bewteen or removed
     if(dist_orig > dist_norm &
        dist_orig < (dist_norm*1.5)){
-      #print('no action_flag')
       no_action_add <- 1
     }
     # -------------------------------------------------------------------------------------
@@ -79,7 +77,7 @@ Remove_Linestring_Points_By_Proximity <- function(user_supplied_crs = 4326,
     
     # -------------------------------------------------------------------------------------
     # double check length not being exceeded
-    if(counter < (length(new_x) - 1)){
+    if(counter <= (length(new_x) - 1)){
       # -------------------------------------------------------------------------------------
       # calculate distance between current and subsequent point
       # if points have been removed this will be updated
