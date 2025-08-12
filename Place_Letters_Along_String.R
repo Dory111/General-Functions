@@ -10,7 +10,8 @@ Place_Letters_Along_String <- function(offset = 0.0001,
                                        user_supplied_crs = 4326,
                                        dist_norm = 1000,
                                        initial_point_skip = 4,
-                                       between_point_skip = 1,
+                                       between_point_skip = 0,
+                                       add_space_between_words = TRUE,
                                        repeat_name_n = 1,
                                        read_direction = 'left-right',
                                        text_position = 'above')
@@ -24,8 +25,38 @@ Place_Letters_Along_String <- function(offset = 0.0001,
   # -------------------------------------------------------------------------------------
   
   # -------------------------------------------------------------------------------------
+  # adaquate space between words
+  if(add_space_between_words == TRUE){
+    # -------------------------------------------------------------------------------------
+    split_letters <- strsplit(letters, '')[[1]]
+    if(split_letters[length(split_letters)] == ''|
+       split_letters[length(split_letters)] == ' '){
+      split_letters <- split_letters[-c(length(split_letters))]
+    }
+    
+    splits <- which(split_letters == ' ')
+    new <- list()
+    counter <- 1
+    if(length(splits) > 0){
+      for(i in 1:length(splits)){
+        
+        new[[i]] <- paste0(paste(split_letters[counter:splits[i]],collapse = ''),
+                           '')
+        counter <- counter + length(split_letters[counter:splits[i]])
+        
+        if(i == length(splits)){
+          new[[i+1]] <- paste0(split_letters[(counter):length(split_letters)], collapse = '')
+        }
+      }
+    }
+    letters <- do.call(paste,new)
+    # -------------------------------------------------------------------------------------
+  }
+  # -------------------------------------------------------------------------------------
+  
+  # -------------------------------------------------------------------------------------
   # error
-  if((nchar(letters) + initial_point_skip) > length(verts[[1]])){
+  if((nchar(letters) + initial_point_skip + between_point_skip*nchar(letters)) > length(verts[[1]])){
     stop(paste('LABELS_ALONG_STRING:\n\n',
                'Number of points supplied is less than the number of characters\n\n',
                'and the supplied number of skipped points'))
@@ -40,11 +71,15 @@ Place_Letters_Along_String <- function(offset = 0.0001,
     # -------------------------------------------------------------------------------------
     # if theres enough room to accomodate letters
     if((nchar(letters) + between_point_skip) <= length(verts[[1]][letter_counter:length(verts[[1]])])){
-      letter_counter <- letter_counter + between_point_skip
+      letter_counter <- letter_counter 
       # -------------------------------------------------------------------------------------
       for(i in 1:nchar(letters)){
         # -------------------------------------------------------------------------------------
-        letter_counter <- letter_counter + 1
+        if(i == 1){
+          letter_counter <- letter_counter + 1
+        } else {
+          letter_counter <- letter_counter + 1 + between_point_skip
+        }
         char <- substring(letters,
                           i,
                           i)
