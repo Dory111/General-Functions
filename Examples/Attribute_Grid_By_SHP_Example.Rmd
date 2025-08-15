@@ -1169,8 +1169,7 @@ legend(x = -243430,
 # Function Example 2
 <br/>
 <br/>
-The function can also take in a raster as the starting values. This time we will set the replacement value to 100, the starting value to the raster we generated above, and cells to only have their value replaced when they are fully engulfed (to make the visualization more obvious).
-In this case the user wants to replace the 1 values with 3. Values should be replaced if cells have greater than 10% ('partial_fact') of their area overlapped by the shapefile, with their new value scaled by the amount overlapped ('scale_by_intersected_area'). For example a cell 10% overlapped would have 10% of the distance between 1 and 3 (0.2) added to its starting value for a final value of 1.2.
+The function can also take in a raster as the starting values. This time we will set the replacement value to 100, the starting values to the raster we generated above, and cells to only have their value replaced when they are fully engulfed (to make the visualization more obvious).
 
 
 ```{r inputraster, message = FALSE, warning = FALSE, error = FALSE, results = 'hide'}
