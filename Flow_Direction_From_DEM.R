@@ -269,7 +269,7 @@ flow_dir_of_DEM <- function(raster = test_rast,
     ctr_x <- 2
     ctr_y <- 2
     # ------------------------------------------------------------------------------------------------
-    i <- 1
+
     # ------------------------------------------------------------------------------------------------
     # get direction and gradient of each facet
     for(i in 1:8){
@@ -304,10 +304,10 @@ flow_dir_of_DEM <- function(raster = test_rast,
 
       # ------------------------------------------------------------------------------------------------
       # get bounds of wedge
-      bounds <- c(atan2(diff_y*nbr_dy[i],
-                        diff_x*nbr_dx[i]),
-                  atan2(diff_y*nbr_dy[i+1],
-                        diff_x*nbr_dx[i+1]))
+      bounds <- c(atan2(diff_y*diff_dy[i],
+                        diff_x*diff_dx[i]),
+                  atan2(diff_y*diff_dy[i+1],
+                        diff_x*diff_dx[i+1]))
 
       output <- Cross_Product(V,U)
       dir <- output[[4]]
