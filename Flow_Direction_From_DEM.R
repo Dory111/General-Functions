@@ -1,149 +1,6 @@
-library(raster)
-library(terra)
-library(sf)
-# rast1 <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Data/DEM/USGS_13_n42w123_20231102.tif')
-# ext <- st_read('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/Scott_HUC_12.shp')
-# plot(rast1, add = T)
-# rast1 <- crop(rast1, ext(ext[ext$name == "South Fork Scott River", ]))
-# rast1 <- mask(rast1, ext(ext[ext$name == "South Fork Scott River", ]))
-# plot(st_geometry(ext))
-# ext$name
-# 
-# 
-# 
-# # ------------------------------------------------------------------------------------------------
-# # example
-# inds <- c(1:40)
-# ncol <- ncol(rast1)
-# ncol <- rep(ncol,40)
-# mod <- c(1:40)
-# ncol <- mod*ncol
-# inds <- c()
-# for(i in 1:40){
-#   for(j in 1:40){
-#     inds <- append(inds,
-#                    ncol[i]+j)
-#   }
-# }
-# 
-# 
-# 
-# rast2 <- rast1[inds]
-# test_rast <- raster(ncol = 40,
-#                     nrow = 40,
-#                     xmn = -120,
-#                     xmx = -119,
-#                     ymn = 40,
-#                     ymx = 41)
-# values(test_rast) <- as.vector(unlist(rast2))
-# 
-# plot(test_rast)
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# s1 <- Sys.time()
-# 
-# theta_rad <- list()
-# values <- values(rast1)
-# values <- matrix(values,
-#                  nrow = nrow,
-#                  ncol = ncol,
-#                  byrow = TRUE)
-# values <- rbind(values,
-#                 rep(NA,ncol))
-# values <- rbind(rep(NA,ncol),
-#                 values)
-# values <- cbind(values,
-#                 rep(NA,nrow+2))
-# values <- cbind(rep(NA,nrow+2),
-#                 values)
-# nrow <- nrow(rast1)
-# ncol <- ncol(rast1)
-# diff_x <- res(rast1)[1]
-# diff_y <- res(rast1)[2]
-# counter <- 0
-# for(i in 1:nrow(rast1)){
-#   print(i/nrow(rast1))
-#   for(j in 1:ncol(rast1)){
-#     counter <- counter +1
-#     theta_rad[[counter]] <- flow_dir_of_DEM(raster = rast1,
-#                               values = values,
-#                               row = i,
-#                               column = j,
-#                               diff_x = diff_x,
-#                               diff_y = diff_y)[[2]]
-# 
-# 
-#   }
-# }
-# print(Sys.time()- s1)
-# 
-# theta_rad <- as.numeric(theta_rad)
-# theta_rast <- rast(ncol = ncol(rast1),
-#                    nrow = nrow(rast1),
-#                    crs = crs(rast1),
-#                    xmin = xmin(rast1),
-#                    xmax = xmax(rast1),
-#                    ymin = ymin(rast1),
-#                    ymax = ymax(rast1))
-# values(theta_rast) <- theta_rad
-# # writeRaster(theta_rast,
-# #             'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/South_Fork_Flow_Dir.tif')
-# 
-# print((Sys.time() - s1)/ncell(rast1))
-# plot(rast1)
-# plot(theta_rast)
-# 
-# 
-# 
-# 
-# values[2,2]
-# 
-# 
-# (7*60) + 30
-# 450/1000
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# plot(rast(test_rast))
-# x <- terra::xyFromCell(test_rast,1:ncell(test_rast))[,1]
-# y <- terra::xyFromCell(test_rast,1:ncell(test_rast))[,2]
-# 
-# 
-# 
-# for(i in 1:ncell(test_rast)){
-#   ymod <- sin(theta_rad[i])*0.025
-#   xmod <- cos(theta_rad[i])*0.025
-#   lines(c(x[i], x[i] + xmod),
-#         c(y[i], y[i] + ymod))
-#   points(c(x[i] + xmod),
-#          c(y[i] + ymod),
-#          cex = 0.6,
-#          col = 'red',
-#          pch = 19)
-# }
-# # ------------------------------------------------------------------------------------------------
-
-
-
-
-
+# ==================================================================================================
+# Generates the likely direction of flow from a DEM (0-360 degrees, 90 being north)
+# ==================================================================================================
 flow_dir_of_DEM <- function(raster = test_rast,
                             values = NULL,
                             row = 2,
@@ -261,97 +118,121 @@ flow_dir_of_DEM <- function(raster = test_rast,
     # ------------------------------------------------------------------------------------------------
     # neighbors from east, clockwise repeating east
     nbr_ids    <- 1:9
-    diff_dx     <- c( 1,  1,  0, -1, -1, -1,  0,  1,  1)
-    diff_dy     <- c( 0, -1, -1, -1,  0,  1,  1,  1,  0)
-    nbr_dx     <- c( 1,  1,  0, -1, -1,  -1,  0,  1,  1)
-    nbr_dy     <- c( 0,  1,  1,  1,  0,  -1, -1, -1,  0)
+    diff_dx     <- c( 1,  1,  0, -1, -1, -1,  0,  1)
+    diff_dy     <- c( 0, -1, -1, -1,  0,  1,  1,  1)
+    
+    diff_dx_shifted     <- c(1,  0, -1, -1, -1,  0,  1,  1)
+    diff_dy_shifted     <- c(-1, -1, -1,  0,  1,  1,  1,  0)
+    
+    nbr_dx     <- c( 1,  1,  0, -1, -1,  -1,  0,  1)
+    nbr_dy     <- c( 0,  1,  1,  1,  0,  -1, -1, -1)
+    
+    nbr_dx_shifted     <- c(1,  0, -1, -1,  -1,  0,  1,  1)
+    nbr_dy_shifted     <- c(1,  1,  1,  0,  -1, -1, -1,  0)
+    
     nbr_angles <- c(  0, 45, 90, 135, 180, 225, 270, 315, 0)
     ctr_x <- 2
     ctr_y <- 2
     # ------------------------------------------------------------------------------------------------
-
+    
+    
     # ------------------------------------------------------------------------------------------------
-    # get direction and gradient of each facet
-    for(i in 1:8){
-
+    # ijk coordinates
+    p0z <- neighbors[ctr_x,
+                     ctr_y]
+    p1z <- neighbors[cbind(ctr_y + nbr_dy,
+                           ctr_x + nbr_dx)]
+    p2z <- neighbors[cbind(ctr_y + nbr_dx_shifted,
+                           ctr_x + nbr_dy_shifted)]
+    
+    p0x <- 0
+    p1x <- diff_x*diff_dx
+    p2x <- diff_x*diff_dx_shifted
+    
+    p0y <- 0
+    p1y <- diff_y*diff_dy
+    p2y <- diff_y*diff_dy_shifted
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # edge vectors of the plane
+    V <- c(p1x - p0x,
+           p1y - p0y,
+           p1z - p0z)
+    U <- c(p2x - p0x,
+           p2y - p0y,
+           p2z - p0z)
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # get bounds of wedges
+    bounds <- cbind(atan2(diff_y*diff_dy,
+                          diff_x*diff_dx),
+                    atan2(diff_y*diff_dy_shifted,
+                          diff_x*diff_dx_shifted))
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # bind ijk
+    V <- cbind(V[1:8],
+               V[9:16],
+               V[17:24])
+    U <- cbind(U[1:8],
+               U[9:16],
+               U[17:24])
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # output cross product
+    output <- Cross_Product_Matrix(V,U) 
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # is there a valid angle
+    if(any(is.na(output[[4]])) == FALSE){
       # ------------------------------------------------------------------------------------------------
-      # ijk coordinates
-      p0z <- neighbors[ctr_x,
-                       ctr_y]
-      p1z <- neighbors[ctr_y + nbr_dy[i],
-                       ctr_x + nbr_dx[i]]
-      p2z <- neighbors[ctr_y + nbr_dy[i+1],
-                       ctr_x + nbr_dx[i+1]]
-
-      p0x <- 0
-      p1x <- diff_x*diff_dx[i]
-      p2x <- diff_x*diff_dx[i+1]
-
-      p0y <- 0
-      p1y <- diff_y*diff_dy[i]
-      p2y <- diff_y*diff_dy[i+1]
+      # convert from signed to unsigned (0-2*pi) angle
+      bounds_comp <- cbind(bounds,output[[4]])
+      bounds_comp <- (bounds_comp + (2*pi)) %% (2*pi)
       # ------------------------------------------------------------------------------------------------
-
+      
       # ------------------------------------------------------------------------------------------------
-      # edge vectors of the plane
-      V <- c(p1x - p0x,
-             p1y - p0y,
-             p1z - p0z)
-      U <- c(p2x - p0x,
-             p2y - p0y,
-             p2z - p0z)
-      # ------------------------------------------------------------------------------------------------
-
-      # ------------------------------------------------------------------------------------------------
-      # get bounds of wedge
-      bounds <- c(atan2(diff_y*diff_dy[i],
-                        diff_x*diff_dx[i]),
-                  atan2(diff_y*diff_dy[i+1],
-                        diff_x*diff_dx[i+1]))
-
-      output <- Cross_Product(V,U)
-      dir <- output[[4]]
-      # ------------------------------------------------------------------------------------------------
-
-      # ------------------------------------------------------------------------------------------------
-      if(is.na(dir) == FALSE){
-        # ------------------------------------------------------------------------------------------------
-        # clamp to within triangular plane if direction of maximum inclination
-        # resides outside triangular wedge
-        if(dir < min(bounds) |
-           dir > max(bounds)){
-          ind <- which((bounds-dir) == min(bounds-dir))
-          dir <- bounds[ind]
-        } else {}#pass
-        # ------------------------------------------------------------------------------------------------
-
-        # ------------------------------------------------------------------------------------------------
-        # append information
-        a <- output[[2]]
-        b <- output[[3]]
-        slope_wedge <- -((a*cos(dir)) + (b*sin(dir)))
-        slopes_wedges <- append(slopes_wedges,
-                                slope_wedge)
-        dir_wedges <- append(dir_wedges,
-                             dir)
-        s2 <- append(s2,
-                     output[[5]])
-        # ------------------------------------------------------------------------------------------------
-      } else {
-        dir_wedges <- append(dir_wedges,
-                             NA)
-        slopes_wedges <- append(slopes_wedges,
-                                NA)
+      # do any directions exceed the wedge bounds
+      inds <- which(bounds_comp[,3] < apply(bounds[,1:2],1,min)|
+                      bounds_comp[,3] > apply(bounds[,1:2],1,max))
+      if(length(inds) > 0){
+        bounds_comp_min_inds <- apply(bounds_comp[inds,3] - bounds_comp[inds,1:2],1,which.min)
+        bounds_comp[inds,3] <- bounds_comp[cbind(inds,bounds_comp_min_inds)]
       }
       # ------------------------------------------------------------------------------------------------
+      
+      # ------------------------------------------------------------------------------------------------
+      # convert back to signed angle
+      final_out <- ifelse(bounds_comp[,3] > pi,
+                          bounds_comp[,3] - 2*pi,
+                          bounds_comp[,3])
+      # ------------------------------------------------------------------------------------------------
+      
+      # ------------------------------------------------------------------------------------------------
+      # slopes of vectors
+      a <- output[[2]]
+      b <- output[[3]]
+      
+      slopes_wedges <- -((a*cos(final_out)) + (b*sin(final_out)))
+      dir_wedges <- final_out
+      # ------------------------------------------------------------------------------------------------
+
+    } else {
+      slopes_wedges <- NA
+      dir_wedges <- NA
     }
     # ------------------------------------------------------------------------------------------------
-
+    
     # ------------------------------------------------------------------------------------------------
     slopes_wedges <- slopes_wedges[is.na(slopes_wedges) == FALSE]
     dir_wedges <- dir_wedges[is.na(dir_wedges) == FALSE]
     # ------------------------------------------------------------------------------------------------
-
+    
     # ------------------------------------------------------------------------------------------------
     # if there are no slopes then all surrounding cells must be NA
     # if there are slopes which is the maximum increase
@@ -365,9 +246,9 @@ flow_dir_of_DEM <- function(raster = test_rast,
         final_dir <- 'f'
         max_slope <- 0
       } else {
-
+        
         ind <- which(slopes_wedges == max(slopes_wedges))
-
+        
         if(length(ind) > 1){
           final_dir <- mean(dir_wedges[ind], na.rm = T)
           final_dir_deg <- final_dir * (180/3.14159)
@@ -379,11 +260,13 @@ flow_dir_of_DEM <- function(raster = test_rast,
           final_dir_deg <- (final_dir_deg + 360) %% 360
           max_slope <- slopes_wedges[ind]
         }
-
+        
       }
       # ------------------------------------------------------------------------------------------------
     } else{
       final_dir <- NA
+      final_dir_deg <- NA
+      max_slope <- NA
     }
     # ------------------------------------------------------------------------------------------------
   }
@@ -396,8 +279,44 @@ flow_dir_of_DEM <- function(raster = test_rast,
 # ------------------------------------------------------------------------------------------------
 
 
-
-
+# ------------------------------------------------------------------------------------------------
+# calculates the cross product of two vectors
+Cross_Product_Matrix <- function(V,
+                                 U)
+{
+  # ------------------------------------------------------------------------------------------------
+  imat <- cbind(V[c(1:8) ,c(2:3)],
+                U[c(1:8) ,c(2:3)])
+  jmat <- cbind(V[c(1:8) ,c(1,3)],
+                U[c(1:8) ,c(1,3)])
+  kmat <- cbind(V[c(1:8) ,c(1:2)],
+                U[c(1:8) ,c(1:2)])
+  # ------------------------------------------------------------------------------------------------
+  
+  # ------------------------------------------------------------------------------------------------
+  # ad-bc
+  ifinal <- (imat[,c(1)]*imat[,c(4)]) - (imat[,c(2)]*imat[,c(3)])
+  jfinal <- (jmat[,c(2)]*jmat[,c(3)]) - (jmat[,c(1)]*jmat[,c(4)]) # bc - ad
+  kfinal <- (kmat[,c(1)]*kmat[,c(4)]) - (kmat[,c(2)]*kmat[,c(3)])
+  # ------------------------------------------------------------------------------------------------
+  
+  # ------------------------------------------------------------------------------------------------
+  a <- -(ifinal/kfinal)
+  b <- -(jfinal/kfinal)
+  dir_of_travel <- atan2(-b,-a)
+  inner <- ifinal**2 + jfinal**2 + kfinal**2
+  inclination_of_plane <- acos(abs(kfinal/ sqrt(inner)))
+  # ------------------------------------------------------------------------------------------------
+  
+  # ------------------------------------------------------------------------------------------------
+  return(list(c(ifinal,jfinal,kfinal),
+              a,
+              b,
+              dir_of_travel,
+              inclination_of_plane))
+  # ------------------------------------------------------------------------------------------------
+}
+# ------------------------------------------------------------------------------------------------
 
 
 # ------------------------------------------------------------------------------------------------
@@ -422,14 +341,14 @@ Cross_Product <- function(V,
                           U[1:2]),
                  byrow = TRUE)
   # ------------------------------------------------------------------------------------------------
-  
+
   # ------------------------------------------------------------------------------------------------
   # ad-bc
   ifinal <- (imat[1,1]*imat[2,2]) - (imat[1,2]*imat[2,1])
   jfinal <- (jmat[1,2]*jmat[2,1]) - (jmat[1,1]*jmat[2,2])
   kfinal <- (kmat[1,1]*kmat[2,2]) - (kmat[1,2]*kmat[2,1])
   # ------------------------------------------------------------------------------------------------
-  
+
   # ------------------------------------------------------------------------------------------------
   a <- -(ifinal/kfinal)
   b <- -(jfinal/kfinal)
@@ -437,7 +356,7 @@ Cross_Product <- function(V,
   inner <- ifinal**2 + jfinal**2 + kfinal**2
   inclination_of_plane <- acos(abs(kfinal/ sqrt(inner)))
   # ------------------------------------------------------------------------------------------------
-  
+
   # ------------------------------------------------------------------------------------------------
   return(list(c(ifinal,jfinal,kfinal),
               a,
