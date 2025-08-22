@@ -4,25 +4,31 @@
 # ext <- st_read('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/Scott_HUC_12.shp')
 # plot(rast, add = F)
 # plot(st_geometry(ext), add = T)
-# rast <- crop(rast, ext(ext))
-# rast <- mask(rast, ext)
+# rast <- crop(rast, ext(ext[ext$name == 'South Fork Scott River',]))
+# rast <- mask(rast, ext[ext$name == 'South Fork Scott River',])
 # Watershed_Delineator(raster = rast,
 #                      out_dir = 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles',
-#                      flow_dir_rast_name = 'Scott_Valley_Flow_Dir')
-# a <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/Scott_Valley_Flow_Dir.tif')
-# png(filename=file.path('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/Scott_Valley_Flow_Dir.png'),
+#                      flow_dir_rast_name = 'South_Fork_Flow_Dir_Test')
+# a <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/South_Fork_Flow_Dir_Test.tif')
+# png(filename=file.path('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/South_Fork_Flow_Dir_Dec.png'),
 #     width=8, height=10, units="in", res=1000)
-# plot(a)
+# plot(a,legend = T,
+#      main = 'Flow Dir Dec of South Fork')
 # b <- a
 # c <- a
 # values(b)[values(a) != 's'] <- NA
 # values(b)[values(a) == 's'] <- 1
 # values(c)[values(a) != 'f'] <- NA
 # values(c)[values(a) == 'f'] <- 1
-# plot(a)
-# plot(b, add = F, col = 'red', legend = F)
+# plot(b, add = T, col = 'red', legend = F)
 # plot(c, add = T, col = 'darkorange', legend = F)
 # dev.off()
+# 
+# png(filename=file.path('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/South_Fork_DEM.png'),
+#     width=8, height=10, units="in", res=1000)
+# plot(rast, add = F)
+# dev.off()
+
 library(raster)
 library(terra)
 library(sf)
@@ -31,7 +37,9 @@ library(sf)
 # ==================================================================================================
 Watershed_Delineator <- function(raster,
                                  out_dir,
-                                 flow_dir_rast_name = NULL)
+                                 flow_dir_rast_name = NULL,
+                                 min_slope = 1e-9,
+                                 flow_dir_output_type = 'decimal degrees')
 {
   ################################## ERRORS ########################################################
   # ------------------------------------------------------------------------------------------------
@@ -45,7 +53,6 @@ Watershed_Delineator <- function(raster,
     }
   }
   # ------------------------------------------------------------------------------------------------
-  
   
   
   
@@ -65,7 +72,7 @@ Watershed_Delineator <- function(raster,
   ################################## FLOW DIRECTION RASTER #########################################
   # ------------------------------------------------------------------------------------------------
   # padding values
-  theta_rad <- list()
+  flow_dir_output <- list()
   values <- values(raster)
   nrow <- nrow(raster)
   ncol <- ncol(raster)
@@ -108,30 +115,47 @@ Watershed_Delineator <- function(raster,
                 width = 50)
     for(j in 1:ncol(raster)){
       counter <- counter +1
-      theta_rad[[counter]] <- flow_dir_of_DEM(raster = raster,
-                                values = values,
-                                row = i,
-                                column = j,
-                                diff_x = diff_x,
-                                diff_y = diff_y)[[2]]
-
-
+      if(flow_dir_output_type == 'decimal degrees'){
+        flow_dir_output[[counter]] <- flow_dir_of_DEM(raster = raster,
+                                                      values = values,
+                                                      row = i,
+                                                      column = j,
+                                                      diff_x = diff_x,
+                                                      diff_y = diff_y,
+                                                      min_slope = min_slope)[[2]]
+      } else if(flow_dir_output_type == 'radial degrees'){
+        flow_dir_output[[counter]] <- flow_dir_of_DEM(raster = raster,
+                                                      values = values,
+                                                      row = i,
+                                                      column = j,
+                                                      diff_x = diff_x,
+                                                      diff_y = diff_y,
+                                                      min_slope = min_slope)[[1]]
+      } else if(flow_dir_output_type == 'slope degrees'){
+        flow_dir_output[[counter]] <- flow_dir_of_DEM(raster = raster,
+                                                      values = values,
+                                                      row = i,
+                                                      column = j,
+                                                      diff_x = diff_x,
+                                                      diff_y = diff_y,
+                                                      min_slope = min_slope)[[3]]
+      }
     }
   }
   # ------------------------------------------------------------------------------------------------
 
   # ------------------------------------------------------------------------------------------------
   # building raster and writing out
-  theta_rad <- as.numeric(theta_rad)
-  theta_rast <- rast(ncol = ncol(raster),
-                     nrow = nrow(raster),
-                     crs = crs(raster),
-                     xmin = xmin(raster),
-                     xmax = xmax(raster),
-                     ymin = ymin(raster),
-                     ymax = ymax(raster))
-  values(theta_rast) <- theta_rad
-  writeRaster(theta_rast,
+  flow_dir_output <- as.numeric(flow_dir_output)
+  flow_dir_rast <- rast(ncol = ncol(raster),
+                        nrow = nrow(raster),
+                        crs = crs(raster),
+                        xmin = xmin(raster),
+                        xmax = xmax(raster),
+                        ymin = ymin(raster),
+                        ymax = ymax(raster))
+  values(flow_dir_rast) <- flow_dir_output
+  writeRaster(flow_dir_rast,
               file.path(out_dir,paste0(flow_dir_rast_name,'.tif')),
               overwrite = TRUE)
   # ------------------------------------------------------------------------------------------------
