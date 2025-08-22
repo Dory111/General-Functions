@@ -1,11 +1,14 @@
 # rast1 <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Data/DEM/USGS_13_n42w123_20231102.tif')
+# rast2 <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Data/DEM/USGS_13_n42w124_20250812.tif')
+# rast <- merge(rast2,rast1)
 # ext <- st_read('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/Scott_HUC_12.shp')
-# plot(rast1, add = T)
-# rast1 <- crop(rast1, ext(ext[ext$name == "South Fork Scott River", ]))
-# rast1 <- mask(rast1, ext(ext[ext$name == "South Fork Scott River", ]))
-# Watershed_Delineator(raster = rast1,
+# plot(rast, add = F)
+# plot(st_geometry(ext), add = T)
+# rast <- crop(rast, ext(ext))
+# rast <- mask(rast, ext)
+# Watershed_Delineator(raster = rast,
 #                      out_dir = 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles',
-#                      flow_dir_rast_name = 'South_Fork_Flow_Dir')
+#                      flow_dir_rast_name = 'Scott_Valley_Flow_Dir')
 library(raster)
 library(terra)
 library(sf)
@@ -50,6 +53,8 @@ Watershed_Delineator <- function(raster,
   # padding values
   theta_rad <- list()
   values <- values(raster)
+  nrow <- nrow(raster)
+  ncol <- ncol(raster)
   values <- matrix(values,
                    nrow = nrow,
                    ncol = ncol,
@@ -66,8 +71,6 @@ Watershed_Delineator <- function(raster,
   
   # ------------------------------------------------------------------------------------------------
   # getting iteratble quantities and notifying user
-  nrow <- nrow(raster)
-  ncol <- ncol(raster)
   diff_x <- res(raster)[1]
   diff_y <- res(raster)[2]
   counter <- 0
@@ -75,6 +78,8 @@ Watershed_Delineator <- function(raster,
   mils <- ncell(raster)/1e6
   seconds <- mils*159
   minutes <- round(seconds/60,2)
+  cat(paste0('For details on the machine these functions were tested on\n',
+             'please call wdl_machine_specs()\n\n'))
   cat(paste0('Compiling flow direction raster\n',
              'based on historical performance \n',
              'and the size of your raster this will take:\n',
@@ -121,11 +126,24 @@ Watershed_Delineator <- function(raster,
 
 
 
+# ==================================================================================================
+# Function to give user information to compare their computer
+# to the testing computer
+# ==================================================================================================
+wdl_machine_specs <- function()
+{
+  cat(paste0('Watershed delineation functions were tested on a\n',
+             'Lenovo thinkpad with:\n',
+             '16 GB of RAM\n',
+             'and a Intel i7-1365U, 1800Mhz 10 core processor\n\n'))
+}
+# ------------------------------------------------------------------------------------------------
 
 # ==================================================================================================
 # Simple function to concatenate a loading bar
 # ==================================================================================================
-loading_bar <- function(iter, total, width = 50) {
+loading_bar <- function(iter, total, width = 50) 
+{
   # ------------------------------------------------------------------------------------------------
   # percent completion
   pct <- iter / total

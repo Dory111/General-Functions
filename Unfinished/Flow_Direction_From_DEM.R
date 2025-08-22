@@ -9,7 +9,6 @@ flow_dir_of_DEM <- function(raster = test_rast,
                             diff_y = NULL,
                             min_slope = 1e-9)
 {
-  
   # ------------------------------------------------------------------------------------------------
   # dimensions and values of raster
   if(is.matrix(values) == FALSE){
@@ -72,6 +71,8 @@ flow_dir_of_DEM <- function(raster = test_rast,
 
     # ------------------------------------------------------------------------------------------------
     # get cardinal values
+    ctr_x <- 2
+    ctr_y <- 2
     east_value <- neighbors[ctr_x + 0,
                             ctr_y + 1]
     south_value <- neighbors[ctr_x + 1,
@@ -101,7 +102,7 @@ flow_dir_of_DEM <- function(raster = test_rast,
       final_dir <- atan2(-dzdy,-dzdx)
       final_dir_deg <- final_dir * (180/3.14159)
       final_dir_deg <- (final_dir_deg + 360) %% 360
-      max_slope <- -(dzdx*cos(dir) + dzdy*sin(dir))
+      max_slope <- -(dzdx*cos(final_dir) + dzdy*sin(final_dir))
 
 
     }
@@ -117,18 +118,18 @@ flow_dir_of_DEM <- function(raster = test_rast,
   if(all(is.na(neighbors) == FALSE)){
     # ------------------------------------------------------------------------------------------------
     # neighbors from east, clockwise repeating east
-    nbr_ids    <- 1:9
-    diff_dx     <- c( 1,  1,  0, -1, -1, -1,  0,  1)
-    diff_dy     <- c( 0, -1, -1, -1,  0,  1,  1,  1)
+    nbr_ids <- 1:9
+    diff_dx <- c( 1,  1,  0, -1, -1, -1,  0,  1)
+    diff_dy <- c( 0, -1, -1, -1,  0,  1,  1,  1)
     
-    diff_dx_shifted     <- c(1,  0, -1, -1, -1,  0,  1,  1)
-    diff_dy_shifted     <- c(-1, -1, -1,  0,  1,  1,  1,  0)
+    diff_dx_shifted <- c(1,  0, -1, -1, -1,  0,  1,  1)
+    diff_dy_shifted <-c(-1, -1, -1,  0,  1,  1,  1,  0)
     
-    nbr_dx     <- c( 1,  1,  0, -1, -1,  -1,  0,  1)
-    nbr_dy     <- c( 0,  1,  1,  1,  0,  -1, -1, -1)
+    nbr_dx  <- c( 1,  1,  0, -1, -1,  -1,  0,  1)
+    nbr_dy  <- c( 0,  1,  1,  1,  0,  -1, -1, -1)
     
-    nbr_dx_shifted     <- c(1,  0, -1, -1,  -1,  0,  1,  1)
-    nbr_dy_shifted     <- c(1,  1,  1,  0,  -1, -1, -1,  0)
+    nbr_dx_shifted  <- c(1,  0, -1, -1,  -1,  0,  1,  1)
+    nbr_dy_shifted  <- c(1,  1,  1,  0,  -1, -1, -1,  0)
     
     nbr_angles <- c(  0, 45, 90, 135, 180, 225, 270, 315, 0)
     ctr_x <- 2
