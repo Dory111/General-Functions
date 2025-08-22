@@ -6,8 +6,15 @@ Custom_Color_Bar <- function(colors,
                              line_length = (par('usr')[4] - par('usr')[3]) * 0.1,
                              labels_TF = F,
                              labels_at = NULL,
-                             labels_text = NULL)
+                             labels_text = NULL,
+                             xpd = TRUE,
+                             middle = FALSE)
 {
+  if(length(labels_at) != length(labels_text)){
+    warning(paste0('Custom_Color_Bar:\n\n',
+                   'length of label positions and text not equal'))
+  }
+  
   #-------------------------------------------------------------------------------
   # create matrix of the coordinates for the rectangles that constitute the color bar
   color_mat <- matrix(nrow = length(colors),
@@ -21,17 +28,16 @@ Custom_Color_Bar <- function(colors,
   #-------------------------------------------------------------------------------
   # as the bars are horizontal the ybottom and ytop need to be incremented
   # while the xleft and xright are constant
-  y_seq <- seq(from = ybot, to = ytop, length.out = length(colors))
-  color_mat$ybottom <- seq(from = y_seq[1], to = tail(y_seq,2)[1], length.out = length(colors))
-  color_mat$ytop <- seq(from = y_seq[2], to = tail(y_seq,1), length.out = length(colors))
+  y_seq <- seq(from = ybot, to = ytop, length.out = length(colors)+1)
+  color_mat$ybottom <- y_seq[1:(length(y_seq) - 1)]
+  color_mat$ytop <- y_seq[2:(length(y_seq))]
   #-------------------------------------------------------------------------------
   
   #-------------------------------------------------------------------------------
   color_mat$value <- seq(from = -1, to = 1, length.out = length(colors))
   color_mat$color <- colors
-  y_range <- ytop-ybot
   #-------------------------------------------------------------------------------
-  
+
   #-------------------------------------------------------------------------------
   # draw the rectangles of the color bar
   for(j in 1:nrow(color_mat)){
@@ -60,7 +66,7 @@ Custom_Color_Bar <- function(colors,
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
-  
+
   #-------------------------------------------------------------------------------
   # create extra row for the last label to be drawn with
   # compensates for the fact that in any color bar there will be a different
@@ -79,6 +85,12 @@ Custom_Color_Bar <- function(colors,
   # should labels be plotted on the color bar
   if(labels_TF == TRUE){
     #-------------------------------------------------------------------------------
+    if(is.null(labels_at) == TRUE){
+      labels_at <- pretty(color_mat$ybottom)
+    }
+    #-------------------------------------------------------------------------------
+
+    #-------------------------------------------------------------------------------
     # if user did not enter labels then set them to the break values
     if(is.null(labels_text) == TRUE){
       labels_text <- labels_at
@@ -88,13 +100,27 @@ Custom_Color_Bar <- function(colors,
     #-------------------------------------------------------------------------------
     # draw labels
     for(j in 1:length(labels_at)){
-        lines(x = c(xright, xright + line_length),
-              y = c(color_mat$ybottom[j],color_mat$ybottom[j]))
-        text(x = xright + line_length,
-             y = color_mat$ybottom[j], 
-             pos = 4,
-             labels = labels_text[j],
-             cex = 1.4)
+      if(labels_at[j] == 0){
+        labels_at[j] <- 1
+      }
+      
+      if(middle == FALSE){
+        y <- color_mat$ybottom[labels_at[j]]
+      } else {
+        y <- (color_mat$ybottom[labels_at[j]] + color_mat$ytop[labels_at[j]])/2
+      }
+      
+      
+      lines(x = c(xright, xright + line_length),
+            y = c(y,y),
+            xpd = xpd)
+       
+      text(x = xright + line_length,
+           y = y, 
+           pos = 4,
+           labels = labels_text[j],
+           cex = 1.4,
+           xpd = xpd)
     }
     #-------------------------------------------------------------------------------
   }

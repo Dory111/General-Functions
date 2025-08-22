@@ -7,7 +7,8 @@ flow_dir_of_DEM <- function(raster = test_rast,
                             column = 2,
                             diff_x = NULL,
                             diff_y = NULL,
-                            min_slope = 1e-9)
+                            min_slope = 1,
+                            zunit = 'm')
 {
   # ------------------------------------------------------------------------------------------------
   # dimensions and values of raster
@@ -27,6 +28,52 @@ flow_dir_of_DEM <- function(raster = test_rast,
   }
   # ------------------------------------------------------------------------------------------------
 
+  # ------------------------------------------------------------------------------------------------
+  # calculate distance based on latlon
+  Haversine_Formula <- function(LatA,LonA,
+                                LatB,LonB,
+                                Re = 6371)
+  {
+    LatA <- LatA * (3.14159/180)
+    LonA <- LonA * (3.14159/180)
+    LatB <- LatB * (3.14159/180)
+    LonB <- LonB * (3.14159/180)
+    
+    dlat <- LatB - LatA
+    dlon <- LonB - LonA
+    
+    a <- sin(dlat / 2)^2 + cos(LatA) * cos(LatB) * sin(dlon / 2)^2
+    c <- 2 * atan2(sqrt(a),sqrt(1-a))
+    
+    d <- Re * c
+    return(d)
+  }
+  # ------------------------------------------------------------------------------------------------
+  
+  # ------------------------------------------------------------------------------------------------
+  # getting km res from arc second raster
+  datum <- strsplit(crs(raster),'\n')[[1]]
+  datum <- datum[grep('DATUM',datum)] %>%
+    trimws() %>% strsplit("\"")
+  datum <- datum[[1]][2]
+  if(datum == "World Geodetic System 1984"){
+    if(is.null(diff_x) == TRUE |
+       is.null(diff_y) == TRUE){
+      y <- (ymin(raster) + ymax(raster))/2
+      x <- (xmin(raster) + xmax(raster))/2
+      diff_x <- Haversine_Formula(y, x,
+                                  y, x + res(raster)[1])
+      diff_y <- Haversine_Formula(y, x,
+                                  y + res(raster)[2],x)
+      
+      if(zunit == 'ft'){
+        diff_x <- diff_x * 3.28
+        diff_y <- diff_y * 3.28
+      }
+    }
+  }
+  # ------------------------------------------------------------------------------------------------
+  
   # ------------------------------------------------------------------------------------------------
   # calculate position of cell
   position <- (ncol * (row-1)) +
@@ -103,7 +150,7 @@ flow_dir_of_DEM <- function(raster = test_rast,
       final_dir_deg <- final_dir * (180/3.14159)
       final_dir_deg <- (final_dir_deg + 360) %% 360
       max_slope <- -(dzdx*cos(final_dir) + dzdy*sin(final_dir))
-
+      max_slope <- atan2(max_slope,1) * (180/3.14195)
 
     }
     # ------------------------------------------------------------------------------------------------
@@ -220,6 +267,7 @@ flow_dir_of_DEM <- function(raster = test_rast,
       b <- output[[3]]
       
       slopes_wedges <- -((a*cos(final_out)) + (b*sin(final_out)))
+      slopes_wedges <- atan2(slopes_wedges,1) * (180/3.14159)
       dir_wedges <- final_out
       # ------------------------------------------------------------------------------------------------
 
@@ -272,7 +320,7 @@ flow_dir_of_DEM <- function(raster = test_rast,
     # ------------------------------------------------------------------------------------------------
   }
   # ------------------------------------------------------------------------------------------------
-
+  
   return(list(final_dir,
               final_dir_deg,
               max_slope))

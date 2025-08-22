@@ -28,7 +28,6 @@
 #     width=8, height=10, units="in", res=1000)
 # plot(rast, add = F)
 # dev.off()
-
 library(raster)
 library(terra)
 library(sf)
