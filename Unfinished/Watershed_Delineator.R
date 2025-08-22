@@ -9,6 +9,20 @@
 # Watershed_Delineator(raster = rast,
 #                      out_dir = 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles',
 #                      flow_dir_rast_name = 'Scott_Valley_Flow_Dir')
+# a <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/Scott_Valley_Flow_Dir.tif')
+# png(filename=file.path('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/Scott_Valley_Flow_Dir.png'),
+#     width=8, height=10, units="in", res=1000)
+# plot(a)
+# b <- a
+# c <- a
+# values(b)[values(a) != 's'] <- NA
+# values(b)[values(a) == 's'] <- 1
+# values(c)[values(a) != 'f'] <- NA
+# values(c)[values(a) == 'f'] <- 1
+# plot(a)
+# plot(b, add = F, col = 'red', legend = F)
+# plot(c, add = T, col = 'darkorange', legend = F)
+# dev.off()
 library(raster)
 library(terra)
 library(sf)
