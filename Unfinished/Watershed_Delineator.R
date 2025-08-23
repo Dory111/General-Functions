@@ -3,8 +3,8 @@
 # rast <- merge(rast2,rast1)
 # ext <- st_read('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/Scott_HUC_12.shp')
 # 
-# rast <- crop(rast, ext(ext))
-# rast <- mask(rast, ext)
+# rast <- crop(rast, ext(ext[ext$name == 'South Fork Scott River', ]))
+# rast <- mask(rast, ext[ext$name == 'South Fork Scott River', ])
 # Watershed_Delineator(raster = rast,
 #                      out_dir = 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles',
 #                      flow_dir_rast_name = 'South_Fork_Flow_Dir_Test')
@@ -33,9 +33,10 @@ Watershed_Delineator <- function(raster,
                                  out_dir,
                                  flow_dir_rast_name = NULL,
                                  min_slope = 1e-9,
-                                 flow_dir_output_type = 'slope degrees',
+                                 flow_dir_output_type = 'decimal degrees',
                                  diff_x = NULL,
-                                 diff_y = NULL)
+                                 diff_y = NULL,
+                                 zunit = 'm')
 {
   ################################## ERRORS ########################################################
   # ------------------------------------------------------------------------------------------------
@@ -61,7 +62,50 @@ Watershed_Delineator <- function(raster,
   
   
   
+  # ------------------------------------------------------------------------------------------------
+  # calculate distance based on latlon
+  Haversine_Formula <- function(LatA,LonA,
+                                LatB,LonB,
+                                Re = 6371)
+  {
+    LatA <- LatA * (3.14159/180)
+    LonA <- LonA * (3.14159/180)
+    LatB <- LatB * (3.14159/180)
+    LonB <- LonB * (3.14159/180)
+    
+    dlat <- LatB - LatA
+    dlon <- LonB - LonA
+    
+    a <- sin(dlat / 2)^2 + cos(LatA) * cos(LatB) * sin(dlon / 2)^2
+    c <- 2 * atan2(sqrt(a),sqrt(1-a))
+    
+    d <- Re * c
+    return(d)
+  }
+  # ------------------------------------------------------------------------------------------------
   
+  # ------------------------------------------------------------------------------------------------
+  # getting km res from arc second raster
+  axis <- strsplit(crs(raster),'\n')[[1]]
+  axis <- axis[grep('AXIS',axis)] %>%
+    trimws() %>% strsplit("\"")
+  if(length(grep('Lat',axis)) > 0){ # can latitude be found in the axis def, if so its latlon
+    if(is.null(diff_x) == TRUE |
+       is.null(diff_y) == TRUE){
+      y <- (ymin(raster) + ymax(raster))/2
+      x <- (xmin(raster) + xmax(raster))/2
+      diff_x <- Haversine_Formula(y, x,
+                                  y, x + res(raster)[1]) * 1000
+      diff_y <- Haversine_Formula(y, x,
+                                  y + res(raster)[2],x) * 1000
+      
+      if(zunit == 'ft'){
+        diff_x <- diff_x * 3.28
+        diff_y <- diff_y * 3.28
+      }
+    }
+  }
+  # ------------------------------------------------------------------------------------------------
   
 
   ################################## FLOW DIRECTION RASTER #########################################
