@@ -2,18 +2,17 @@
 # rast2 <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Data/DEM/USGS_13_n42w124_20250812.tif')
 # rast <- merge(rast2,rast1)
 # ext <- st_read('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/Scott_HUC_12.shp')
-# plot(rast, add = F)
-# plot(st_geometry(ext), add = T)
-# rast <- crop(rast, ext(ext[ext$name == 'South Fork Scott River',]))
-# rast <- mask(rast, ext[ext$name == 'South Fork Scott River',])
+# 
+# rast <- crop(rast, ext(ext))
+# rast <- mask(rast, ext)
 # Watershed_Delineator(raster = rast,
 #                      out_dir = 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles',
 #                      flow_dir_rast_name = 'South_Fork_Flow_Dir_Test')
 # a <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/South_Fork_Flow_Dir_Test.tif')
-# png(filename=file.path('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/South_Fork_Flow_Dir_Dec.png'),
+# png(filename=file.path('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/South_Fork_Slope.png'),
 #     width=8, height=10, units="in", res=1000)
 # plot(a,legend = T,
-#      main = 'Flow Dir Dec of South Fork')
+#      main = 'Slope of South Fork')
 # b <- a
 # c <- a
 # values(b)[values(a) != 's'] <- NA
@@ -23,11 +22,7 @@
 # plot(b, add = T, col = 'red', legend = F)
 # plot(c, add = T, col = 'darkorange', legend = F)
 # dev.off()
-# 
-# png(filename=file.path('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/South_Fork_DEM.png'),
-#     width=8, height=10, units="in", res=1000)
-# plot(rast, add = F)
-# dev.off()
+
 library(raster)
 library(terra)
 library(sf)
@@ -38,7 +33,9 @@ Watershed_Delineator <- function(raster,
                                  out_dir,
                                  flow_dir_rast_name = NULL,
                                  min_slope = 1e-9,
-                                 flow_dir_output_type = 'decimal degrees')
+                                 flow_dir_output_type = 'slope degrees',
+                                 diff_x = NULL,
+                                 diff_y = NULL)
 {
   ################################## ERRORS ########################################################
   # ------------------------------------------------------------------------------------------------
@@ -52,7 +49,6 @@ Watershed_Delineator <- function(raster,
     }
   }
   # ------------------------------------------------------------------------------------------------
-  
   
   
   ################################## CORRECTIONS ###################################################
@@ -91,8 +87,6 @@ Watershed_Delineator <- function(raster,
   
   # ------------------------------------------------------------------------------------------------
   # getting iteratble quantities and notifying user
-  diff_x <- res(raster)[1]
-  diff_y <- res(raster)[2]
   counter <- 0
   
   mils <- ncell(raster)/1e6

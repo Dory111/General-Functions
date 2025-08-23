@@ -52,19 +52,18 @@ flow_dir_of_DEM <- function(raster = test_rast,
   
   # ------------------------------------------------------------------------------------------------
   # getting km res from arc second raster
-  datum <- strsplit(crs(raster),'\n')[[1]]
-  datum <- datum[grep('DATUM',datum)] %>%
+  axis <- strsplit(crs(raster),'\n')[[1]]
+  axis <- axis[grep('AXIS',axis)] %>%
     trimws() %>% strsplit("\"")
-  datum <- datum[[1]][2]
-  if(datum == "World Geodetic System 1984"){
+  if(length(grep('Lat',axis)) > 0){ # can latitude be found in the axis def, if so its latlon
     if(is.null(diff_x) == TRUE |
        is.null(diff_y) == TRUE){
       y <- (ymin(raster) + ymax(raster))/2
       x <- (xmin(raster) + xmax(raster))/2
       diff_x <- Haversine_Formula(y, x,
-                                  y, x + res(raster)[1])
+                                  y, x + res(raster)[1]) * 1000
       diff_y <- Haversine_Formula(y, x,
-                                  y + res(raster)[2],x)
+                                  y + res(raster)[2],x) * 1000
       
       if(zunit == 'ft'){
         diff_x <- diff_x * 3.28
@@ -73,7 +72,7 @@ flow_dir_of_DEM <- function(raster = test_rast,
     }
   }
   # ------------------------------------------------------------------------------------------------
-  
+
   # ------------------------------------------------------------------------------------------------
   # calculate position of cell
   position <- (ncol * (row-1)) +
