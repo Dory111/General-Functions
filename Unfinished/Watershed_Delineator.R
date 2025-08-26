@@ -1,14 +1,14 @@
-# rast1 <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Data/DEM/USGS_13_n42w123_20231102.tif')
-# rast2 <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Data/DEM/USGS_13_n42w124_20250812.tif')
+# rast1 <- rast('C:/Users/ChrisDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Data/DEM/USGS_13_n42w123_20231102.tif')
+# rast2 <- rast('C:/Users/ChrisDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Data/DEM/USGS_13_n42w124_20250812.tif')
 # rast <- merge(rast2,rast1)
-# ext <- st_read('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/Scott_HUC_12.shp')
+# ext <- st_read('C:/Users/ChrisDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/Scott_HUC_12.shp')
 # 
 # rast <- crop(rast, ext(ext[ext$name == 'South Fork Scott River', ]))
 # rast <- mask(rast, ext[ext$name == 'South Fork Scott River', ])
 # Watershed_Delineator(raster = rast,
-#                      out_dir = 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles',
+#                      out_dir = 'C:/Users/ChrisDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles',
 #                      flow_dir_rast_name = 'South_Fork_Flow_Dir_Test')
-# a <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/South_Fork_Flow_Dir_Test.tif')
+# a <- rast('C:/Users/ChrisDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/South_Fork_Flow_Dir_Test.tif')
 # png(filename=file.path('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/South_Fork_Slope.png'),
 #     width=8, height=10, units="in", res=1000)
 # plot(a,legend = T,
@@ -32,8 +32,7 @@ library(sf)
 Watershed_Delineator <- function(raster,
                                  out_dir,
                                  flow_dir_rast_name = NULL,
-                                 min_slope = 1e-9,
-                                 flow_dir_output_type = 'decimal degrees',
+                                 min_slope = 1,
                                  diff_x = NULL,
                                  diff_y = NULL,
                                  zunit = 'm')
@@ -111,7 +110,9 @@ Watershed_Delineator <- function(raster,
   ################################## FLOW DIRECTION RASTER #########################################
   # ------------------------------------------------------------------------------------------------
   # padding values
-  flow_dir_output <- list()
+  flow_dir_deg_output <- list()
+  flow_dir_rad_output <- list()
+  flow_dir_slope_output <- list()
   values <- values(raster)
   nrow <- nrow(raster)
   ncol <- ncol(raster)
@@ -151,39 +152,27 @@ Watershed_Delineator <- function(raster,
                 nrow(raster),
                 width = 50)
     for(j in 1:ncol(raster)){
-      counter <- counter +1
-      if(flow_dir_output_type == 'decimal degrees'){
-        flow_dir_output[[counter]] <- flow_dir_of_DEM(raster = raster,
-                                                      values = values,
-                                                      row = i,
-                                                      column = j,
-                                                      diff_x = diff_x,
-                                                      diff_y = diff_y,
-                                                      min_slope = min_slope)[[2]]
-      } else if(flow_dir_output_type == 'radial degrees'){
-        flow_dir_output[[counter]] <- flow_dir_of_DEM(raster = raster,
-                                                      values = values,
-                                                      row = i,
-                                                      column = j,
-                                                      diff_x = diff_x,
-                                                      diff_y = diff_y,
-                                                      min_slope = min_slope)[[1]]
-      } else if(flow_dir_output_type == 'slope degrees'){
-        flow_dir_output[[counter]] <- flow_dir_of_DEM(raster = raster,
-                                                      values = values,
-                                                      row = i,
-                                                      column = j,
-                                                      diff_x = diff_x,
-                                                      diff_y = diff_y,
-                                                      min_slope = min_slope)[[3]]
-      }
+      counter <- counter + 1
+
+      output <- flow_dir_of_DEM(raster = raster,
+                                values = values,
+                                row = i,
+                                column = j,
+                                diff_x = diff_x,
+                                diff_y = diff_y,
+                                min_slope = min_slope)
+      flow_dir_deg_output[[counter]] <- output[[2]]
+      flow_dir_rad_output[[counter]] <- output[[1]]
+      flow_dir_slope_output[[counter]] <- output[[3]]
     }
   }
   # ------------------------------------------------------------------------------------------------
 
   # ------------------------------------------------------------------------------------------------
   # building raster and writing out
-  flow_dir_output <- as.numeric(flow_dir_output)
+  flow_dir_deg_output <- as.numeric(flow_dir_deg_output)
+  flow_dir_rad_output <- as.numeric(flow_dir_rad_output)
+  flow_dir_slope_output <- as.numeric(flow_dir_slope_output)
   flow_dir_rast <- rast(ncol = ncol(raster),
                         nrow = nrow(raster),
                         crs = crs(raster),
@@ -191,8 +180,20 @@ Watershed_Delineator <- function(raster,
                         xmax = xmax(raster),
                         ymin = ymin(raster),
                         ymax = ymax(raster))
-  values(flow_dir_rast) <- flow_dir_output
-  writeRaster(flow_dir_rast,
+  flow_dir_deg_rast <- flow_dir_rast
+  flow_dir_rad_rast <- flow_dir_rast
+  flow_dir_slope_rast <- flow_dir_rast
+  
+  values(flow_dir_deg_rast) <- flow_dir_deg_output
+  values(flow_dir_rad_rast) <- flow_dir_rad_output
+  values(flow_dir_slope_rast) <- flow_dir_slope_output
+  stack <- c(flow_dir_deg_rast,
+             flow_dir_rad_rast,
+             flow_dir_slope_rast)
+  names(stack) <- c('degrees','radians','slope')
+  plot(stack[[3]])
+  
+  writeRaster(stack,
               file.path(out_dir,paste0(flow_dir_rast_name,'.tif')),
               overwrite = TRUE)
   # ------------------------------------------------------------------------------------------------
@@ -208,9 +209,9 @@ Watershed_Delineator <- function(raster,
 wdl_machine_specs <- function()
 {
   cat(paste0('Watershed delineation functions were tested on a\n',
-             'Lenovo thinkpad with:\n',
+             'Lenovo thinkpad with:\n\n',
              '16 GB of RAM\n',
-             'and a Intel i7-1365U, 1800Mhz 10 core processor\n\n'))
+             'and an Intel i7-1365U, 1800Mhz 10 core processor\n\n'))
 }
 # ------------------------------------------------------------------------------------------------
 
