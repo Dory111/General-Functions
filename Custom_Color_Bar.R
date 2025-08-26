@@ -10,7 +10,8 @@ Custom_Color_Bar <- function(colors,
                              xpd = TRUE,
                              middle = FALSE)
 {
-  if(length(labels_at) != length(labels_text)){
+  if(length(labels_at) != length(labels_text) &
+     is.null(labels_text) == FALSE){
     warning(paste0('Custom_Color_Bar:\n\n',
                    'length of label positions and text not equal'))
   }
@@ -79,14 +80,14 @@ Custom_Color_Bar <- function(colors,
                NA)
   color_mat <- rbind(color_mat,new_row)
   #-------------------------------------------------------------------------------
-  
 
   #-------------------------------------------------------------------------------
   # should labels be plotted on the color bar
   if(labels_TF == TRUE){
     #-------------------------------------------------------------------------------
     if(is.null(labels_at) == TRUE){
-      labels_at <- pretty(color_mat$ybottom)
+      labels_at <- pretty(c(1,
+                            length(color_mat$ybottom)))
     }
     #-------------------------------------------------------------------------------
 
@@ -100,16 +101,12 @@ Custom_Color_Bar <- function(colors,
     #-------------------------------------------------------------------------------
     # draw labels
     for(j in 1:length(labels_at)){
-      if(labels_at[j] == 0){
-        labels_at[j] <- 1
-      }
-      
+
       if(middle == FALSE){
         y <- color_mat$ybottom[labels_at[j]]
       } else {
         y <- (color_mat$ybottom[labels_at[j]] + color_mat$ytop[labels_at[j]])/2
       }
-      
       
       lines(x = c(xright, xright + line_length),
             y = c(y,y),
