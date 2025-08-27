@@ -1,7 +1,7 @@
 #===========================================================================================
 # Takes vertices of list(y,x) and removes all points between
-# dist_norm and dist_norm*1.5
-# If points farther apart than dist_norm*1.5 it will add
+# dist_norm and dist_norm*1.1
+# If points farther apart than dist_norm*1.1 it will add
 # points between them artificially by linear interpolation
 #===========================================================================================
 Remove_Linestring_Points_By_Proximity <- function(user_supplied_crs = 4326,
