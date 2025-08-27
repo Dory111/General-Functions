@@ -101,7 +101,10 @@ Custom_Color_Bar <- function(colors,
     #-------------------------------------------------------------------------------
     # draw labels
     for(j in 1:length(labels_at)){
-
+      if(labels_at[j] == 0){
+        labels_at[j] <- 1
+      }
+      
       if(middle == FALSE){
         y <- color_mat$ybottom[labels_at[j]]
       } else {
