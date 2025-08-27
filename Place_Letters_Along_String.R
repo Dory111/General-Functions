@@ -62,6 +62,17 @@ Place_Letters_Along_String <- function(offset = 0.0001,
                'and the supplied number of skipped points'))
   }
   # -------------------------------------------------------------------------------------
+  
+  # -------------------------------------------------------------------------------------
+  # warning
+  if(text_position != 'center' &
+     offset == 0){
+    warning(paste('LABELS_ALONG_STRING:\n\n',
+                  'No offset supplied to base non-centered text position\n\n',
+                  'offset set to 1e-5'))
+    offset <- 1e-5
+  }
+  # -------------------------------------------------------------------------------------
 
   # -------------------------------------------------------------------------------------
   # repeat along length of string
@@ -295,7 +306,6 @@ Place_Text_Above <- function(x1,
       text_position_valid <- TRUE
     }
     # -------------------------------------------------------------------------------------
-    
     
     
     
