@@ -1,5 +1,6 @@
 # ==================================================================================================
 # Generates the likely direction of flow from a DEM (0-360 degrees, 90 being north)
+# based on D (inf) method of Tarboton 1997 (https://doi.org/10.1029/96WR03137)
 # ==================================================================================================
 flow_dir_of_DEM <- function(raster = test_rast,
                             values = NULL,
