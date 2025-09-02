@@ -100,27 +100,30 @@ Custom_Color_Bar <- function(colors,
     
     #-------------------------------------------------------------------------------
     # draw labels
+    if(0 %in% labels_at){
+      labels_at <- labels_at + 1
+    }
     for(j in 1:length(labels_at)){
-      if(labels_at[j] == 0){
-        labels_at[j] <- 1
-      }
-      
       if(middle == FALSE){
         y <- color_mat$ybottom[labels_at[j]]
       } else {
         y <- (color_mat$ybottom[labels_at[j]] + color_mat$ytop[labels_at[j]])/2
       }
       
-      lines(x = c(xright, xright + line_length),
-            y = c(y,y),
-            xpd = xpd)
-       
-      text(x = xright + line_length,
-           y = y, 
-           pos = 4,
-           labels = labels_text[j],
-           cex = 1.4,
-           xpd = xpd)
+      if(middle == TRUE & j > length(colors)){
+        
+      } else {
+        lines(x = c(xright, xright + line_length),
+              y = c(y,y),
+              xpd = xpd)
+        
+        text(x = xright + line_length,
+             y = y, 
+             pos = 4,
+             labels = labels_text[j],
+             cex = 1.4,
+             xpd = xpd)
+      }
     }
     #-------------------------------------------------------------------------------
   }
