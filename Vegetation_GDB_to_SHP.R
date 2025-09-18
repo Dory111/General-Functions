@@ -1,58 +1,154 @@
+#===========================================================================================
+# load dependencies
+#===========================================================================================
 library(raster)
 library(sf)
 library(sp)
 library(stars)
 library(plotly)
 library(terra)
+library(stringr)
+
 #===========================================================================================
-# Converts fveg WHRTYPE geodatabase, which was somehow exported in such a cursed format
-# that it is nearly unuseable except in ESRI products,
-# to more normal formats
+# Converts cursed format
 #===========================================================================================
-Veg_GDB_to_SHP <- function(fact = 4, # aggregation factor (will make files smaller)
+Veg_GDB_to_SHP <- function(fact = NULL,
                            veg_raster_path = 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/PRMS-Modeling-Training/Data/Input/fveg22_1.gdb',
-                           veg_raster_projection = 3310, # epsg projection number
-                           watershed_path = file.path('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/Upland-Management-Siskiyou/Shapefiles',
-                                                      'Upland_project_identification_QGIS',
-                                                      'shapefiles_used',
-                                                      'siskiyou_watersheds.shp'),
-                           plot_diagnostics = TRUE,
-                           whr_all_of_interest = NULL,
-                           out_dir = 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/PRMS-Modeling-Training/Data/',
-                           out_name = 'Scott')
+                           watershed_path = NULL,
+                           out_dir = NULL,
+                           out_name = NULL)
 { 
-  #-------------------------------------------------------------------------------
-  if(plot_diagnostics == TRUE & is.null(whr_all_of_interest) == TRUE){
-    stop(paste0('VEG_GDB_TO_SHP:\n\n',
-                'Output plot selected but no vegetation type\n',
-                'to plot passed'))
+  ####################################################################################################
+  ############################################### HELPER  FUNCTIONS ##################################
+  ####################################################################################################
+  # ==================================================================================================
+  # Simple function to concatenate a loading bar
+  # ==================================================================================================
+  loading_bar <- function(optional_text = '', iter, total, width = 50) 
+  {
+    if(iter == 1){
+      cat('\n')
+    }
+    # ------------------------------------------------------------------------------------------------
+    # percent completion
+    pct <- iter / total
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # how much to fill the bar
+    filled <- round(width * pct)
+    bar <- paste0(rep("=", filled), collapse = "")
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # how much is left
+    space <- paste0(rep(" ", width - filled), collapse = "")
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    cat(sprintf("\r[%s%s] %3d%% %s",
+                bar,
+                space,
+                round(100*pct),
+                optional_text))
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    if (iter == total){
+      cat("\n")
+    }
+    # ------------------------------------------------------------------------------------------------
   }
-  #-------------------------------------------------------------------------------
+  # ------------------------------------------------------------------------------------------------
+
   
-  #-------------------------------------------------------------------------------
-  Watersheds <<- st_read(watershed_path,
-                         quiet = TRUE)
-  #-------------------------------------------------------------------------------
   
+  
+  
+  
+  
+  
+  
+  
+  ####################################################################################################
+  ############################################### MAIN  FUNCTION #####################################
+  ####################################################################################################
   #-------------------------------------------------------------------------------------------
-  # POINT THESE TO THE FVEG GEO DATABASE
-  cat('Loading Raster For Value Translation \n\n')
+  # Warnings
+  if(is.null(out_dir) == TRUE){
+    warning(paste(' No output directory specified\n',
+                  'using current working directory of\n',
+                  getwd(),'\n'))
+    out_dir <- getwd()
+    
+  }
+  if(is.null(out_name) == TRUE){
+    warning(paste(' No output name specified\n',
+                  'using name: \'test\'',
+                  '\n'))
+    out_name <- 'test'
+  }
+  if(is.null(watershed_path) == TRUE){
+    warning(paste(' No watershed specified to crop raster\n',
+                  'entire state of California will be summarized'))
+    Watersheds <- NULL
+  } else {
+    Watersheds <- st_read(watershed_path,
+                          quiet = TRUE)
+  }
+  #-------------------------------------------------------------------------------------------
+  
+
+  cat('Loading Raster Data... Step (1/3)')
+  #-------------------------------------------------------------------------------------------
+  # load raster for level translation
+  loading_bar(iter = 1,
+              total = 100,
+              width = 50,
+              optional_text = str_pad('Raster for Level Translation',width = 30, side = 'right'))
   raster_for_levels <- raster(veg_raster_path)
-  raster_for_levels <- crop(raster_for_levels,
-                            extent(st_transform(Watersheds,
-                                                veg_raster_projection)))
-  
-  
-  cat('Loading Raster For Values \n\n')
-  raster_for_values <- rast(veg_raster_path)
-  raster_for_values <- crop(raster_for_values,
-                            extent(st_transform(Watersheds,
-                                                veg_raster_projection)))
-  
-  cat('Aggregating Raster For Values \n\n')
-  raster_for_aggregating <- aggregate(raster_for_values, fact = fact)
+  if(is.null(Watersheds) == FALSE){
+    raster_for_levels <- crop(raster_for_levels,
+                              extent(st_transform(Watersheds,
+                                                  crs(raster_for_levels))))
+  }
   #-------------------------------------------------------------------------------------------
   
+  
+  #-------------------------------------------------------------------------------------------
+  # load raster for value translation
+  loading_bar(iter = 33,
+              total = 100,
+              width = 50,
+              optional_text = str_pad('Raster for Value Translation', width = 30, side = 'right'))
+  raster_for_values <- rast(veg_raster_path)
+  if(is.null(Watersheds) == FALSE){
+    raster_for_values <- crop(raster_for_values,
+                              extent(st_transform(Watersheds,
+                                                  crs(raster_for_levels))))
+  }
+  #-------------------------------------------------------------------------------------------
+  
+  #-------------------------------------------------------------------------------------------
+  # aggregate raster if factor supplied
+  if(is.null(fact) == FALSE){
+    loading_bar(iter = 66,
+                total = 100,
+                width = 50,
+                optional_text = str_pad(paste0('Aggregate Raster by ', fact), side = 'right',width = 30))
+    raster_for_aggregating <- aggregate(raster_for_values, fact = fact)
+    loading_bar(iter = 100,
+                total = 100,
+                width = 50,
+                optional_text = str_pad('Done', side = 'right', width = 30))
+  } else {
+    raster_for_aggregating <- raster_for_values
+    loading_bar(iter = 100,
+                total = 100,
+                width = 50,
+                optional_text = str_pad('Done', side = 'right', width = 30))
+  }
+  #-------------------------------------------------------------------------------------------
   
   #-------------------------------------------------------------------------------------------
   # data frame of all the different vegetation types
@@ -61,63 +157,68 @@ Veg_GDB_to_SHP <- function(fact = 4, # aggregation factor (will make files small
                              translation = levels(raster_for_levels)[[1]]$WHRNAME,
                              whr10 = levels(raster_for_levels)[[1]]$WHR10NAME)
   unique_short_codes <- unique(translate_df$shortcode)
+  unique_long_codes <- unique(translate_df$longcode)
   #-------------------------------------------------------------------------------------------
   
-  
   #-------------------------------------------------------------------------------------------
-  cat('Processing Blank Raster \n\n')
-  blank_ <- raster_for_values
-  blank_ <- st_as_sf(as.polygons(blank_))
-  blank_$WHRALL <- rep(-9999, nrow(blank_))
-  blank_$WHR10 <- rep(-9999, nrow(blank_))
-  blank_ <- blank_[1, ]
+  blank_ <- list()
   #-------------------------------------------------------------------------------------------
-  
   
   #-------------------------------------------------------------------------------------------
   # process each unique vegetation type
-  for(i in 1:length(unique_short_codes)){
+  cat('Extracting Raster Data... Step (2/3)')
+  for(i in 1:length(unique_long_codes)){
     
     #-------------------------------------------------------------------------------------------
-    # Progress
-    cat('Processing Actual Raster WHR Codes ',
-        i/length(unique_short_codes) * 100, ' % Done \n\n')
+    loading_bar(iter = i,
+                total = length(unique_long_codes),
+                width = 50,
+                optional_text = 'Processing WHR Codes')
     #-------------------------------------------------------------------------------------------
     
     #-------------------------------------------------------------------------------------------
     # find where the value of the raster is equal to the vegetation value currently
     # being processed
-    values_for_string_code <- levels(raster_for_values)[[1]]$Value[grepl(unique_short_codes[i],
-                                                                         levels(raster_for_values)[[1]]$WHRALL) == TRUE]
+    values_for_string_code <- levels(raster_for_values)[[1]]$Value[levels(raster_for_values)[[1]]$WHRALL == unique_long_codes[i]]
     #-------------------------------------------------------------------------------------------
     
     #-------------------------------------------------------------------------------------------
     # what is the actual vegetation and whr10 type of the short code
-    translation_for_string_code <- translate_df$translation[translate_df$shortcode == unique_short_codes[i]][1]
-    whr10_for_string_code <- translate_df$whr10[translate_df$shortcode == unique_short_codes[i]][1]
+    translation_for_string_code <- translate_df$translation[translate_df$longcode == unique_long_codes[i]][1]
+    whr10_for_string_code <- translate_df$whr10[translate_df$longcode == unique_long_codes[i]][1]
+    short_code <- substr(unique_long_codes[i],1,3)
+    size <- substr(unique_long_codes[i],4,4)
+    density <- substr(unique_long_codes[i],5,5)
     #-------------------------------------------------------------------------------------------
-    
+
     #-------------------------------------------------------------------------------------------
     # set a temporary raster to NA where it doesnt equal the current vegetation type
     tmp <- raster_for_values
     values(tmp)[!(values(tmp) %in% values_for_string_code)] <- NA
     #-------------------------------------------------------------------------------------------
-    
+
     #-------------------------------------------------------------------------------------------
     # convert the raster to polygons for easier compatibility with other programs
     # and bind the polygons of the current vegetation type to the overall dataframe
     tmp <- st_as_sf(as.polygons(tmp))
-    tmp$WHRALL <- rep(translation_for_string_code, nrow(tmp))
+    tmp$WHRALL <- rep(unique_long_codes[i], nrow(tmp))
+    tmp$WHRNAME <- rep(translation_for_string_code, nrow(tmp))
     tmp$WHR10 <- rep(whr10_for_string_code, nrow(tmp))
-    blank_ <- rbind(blank_, tmp)
+    tmp$WHRTYPE <- rep(short_code, nrow(tmp))
+    tmp$DENSITY <- rep(density,nrow(tmp))
+    tmp$SIZE <- rep(size, nrow(tmp))
+    blank_[[i]] <- tmp
     #-------------------------------------------------------------------------------------------
-    
   }
+  blank_ <- do.call(rbind, blank_)
   #-------------------------------------------------------------------------------------------
   
   #-------------------------------------------------------------------------------------------
-  # get rid of the blank first row
-  blank_ <- blank_[-c(1), ]
+  cat('Rasterizing and Exporting Results... Step (3/3)')
+  loading_bar(iter = 1,
+              total = 100,
+              width = 50,
+              optional_text = str_pad('Rasterizing', side = 'right', width = 30))
   #-------------------------------------------------------------------------------------------
   
   #-------------------------------------------------------------------------------------------
@@ -127,67 +228,75 @@ Veg_GDB_to_SHP <- function(fact = 4, # aggregation factor (will make files small
   final_rasterized <- rasterize(blank_,
                                 raster_for_aggregating, c('WHRALL'))
   final_rasterized2 <- rasterize(blank_,
+                                 raster_for_aggregating, c('WHRNAME'))
+  final_rasterized3 <- rasterize(blank_,
                                  raster_for_aggregating, c('WHR10'))
-  final_polygons <- st_as_sf(as.polygons(final_rasterized))
+  final_rasterized4 <- rasterize(blank_,
+                                 raster_for_aggregating, c('WHRTYPE'))
+  final_rasterized5 <- rasterize(blank_,
+                                 raster_for_aggregating, c('DENSITY'))
+  final_rasterized6 <- rasterize(blank_,
+                                 raster_for_aggregating, c('SIZE'))
+  raster_stack <- c(final_rasterized,
+                    final_rasterized2,
+                    final_rasterized3,
+                    final_rasterized4,
+                    final_rasterized5,
+                    final_rasterized6)
   #-------------------------------------------------------------------------------------------
   
   #-------------------------------------------------------------------------------------------
-  # assign the aggregated polygons the correct vegetation type
-  final_polygons$WHR10 <- rep(NA,(nrow(final_polygons)))
-  for(i in 1:nrow(final_polygons)){
+  if(is.null(fact) == FALSE){
     
-    final_polygons$WHR10[i] <- translate_df$whr10[final_polygons$WHRALL[i] == translate_df$translation][1]
+    loading_bar(iter = 33,
+                total = 100,
+                width = 50,
+                optional_text = str_pad('Aggregated Raster -> Polygons', side = 'right', width = 30))
+    #-------------------------------------------------------------------------------------------
+    final_polygons <- st_as_sf(as.polygons(final_rasterized))
+    #-------------------------------------------------------------------------------------------
     
+    #-------------------------------------------------------------------------------------------
+    # assign the aggregated polygons the correct vegetation type
+    final_polygons$WHR10 <- rep(NA,(nrow(final_polygons)))
+    for(i in 1:nrow(final_polygons)){
+      
+      final_polygons$WHR10[i] <- translate_df$whr10[final_polygons$WHRALL[i] == translate_df$translation][1]
+      
+    }
+    #-------------------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------------------
   
   #-------------------------------------------------------------------------------------------
-  if(plot_diagnostics == TRUE){
-    cat('Plotting diagnostics \n\n')
-    
-    plot(final_rasterized, main = 'Raster')
-    plot(st_transform(Watersheds, veg_raster_projection),
-         add = T,
-         col = NA,
-         border = 'red',
-         lwd = 2)
-    
-    plot(st_geometry(st_transform(Watersheds, veg_raster_projection)),
-         main = whr_all_of_interest,
-         col = NA,
-         border = 'blue',
-         lwd = 2)
-    plot(st_geometry(final_polygons[final_polygons$WHRALL == whr_all_of_interest, ]),
-         border = NA,
-         col = 'red',
-         add = T)
-    plot(st_geometry(st_transform(Watersheds, veg_raster_projection)),
-         add = T,
-         col = NA,
-         border = 'blue',
-         lwd = 2)
-  }
+  # create dirs for numerous outputs
+  dir.create(file.path(out_dir,'WHRSHP'))
+  dir.create(file.path(out_dir,'WHRRAST'))
   #-------------------------------------------------------------------------------------------
-  
 
   #-------------------------------------------------------------------------------------------
   # Writeout 
   # POINT DIRECTORIES TO WRITEOUT LOCATIONS
-  cat('Writeout files \n\n')
-  st_write(final_polygons,
-           file.path(out_dir,paste0(out_name,'_WHRALL.shp')),
+  loading_bar(iter = 66,
+              total = 100,
+              width = 50,
+              optional_text = str_pad('Writeout', side = 'right', width = 30))
+  st_write(blank_,
+           file.path(out_dir,'WHRSHP', paste0(out_name,'_WHRSHP.shp')),
            append = FALSE,
            quiet = TRUE)
-  writeRaster(final_rasterized,
-              file.path(out_dir,paste0(out_name,'_WHRALL.tif')), 
-              overwrite = TRUE)
-  writeRaster(final_rasterized2,
-              file.path(out_dir,paste0(out_name,'_WHR10.tif')), 
+  writeRaster(raster_stack,
+              file.path(out_dir,'WHRRAST',paste0(out_name,'_WHRRAST.tif')), 
               overwrite = TRUE)
   #-------------------------------------------------------------------------------------------
 
-  
+  #-------------------------------------------------------------------------------------------
+  loading_bar(iter = 100,
+              total = 100,
+              width = 50,
+              optional_text = str_pad('Done', side = 'right', width = 30))
   cat('IMPORTANT:: TIF REQUIRES AUX FILE FOR LEVELS \n\n')
-
+  invisible(gc())
+  #-------------------------------------------------------------------------------------------
 }
 #-------------------------------------------------------------------------------------------
