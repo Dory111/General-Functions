@@ -11,7 +11,7 @@ Haversine_Formula <- function(LatA,LonA,
   dlat <- LatB - LatA
   dlon <- LonB - LonA
   
-  a <- (sin(dlat / 2)^2 + cos(LatA)) * (cos(LatB) * sin(dlon / 2)^2)
+  a <- sin(dlat / 2)^2 + cos(LatA) * cos(LatB) * sin(dlon / 2)^2
   c <- 2 * atan2(sqrt(a),sqrt(1-a))
   
   d <- Re * c
