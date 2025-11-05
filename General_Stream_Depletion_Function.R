@@ -14,6 +14,7 @@
 # 11/5/2025
 calculate_stream_depletions <- function(streams,
                                         streams_are_points = FALSE,
+                                        stream_id_key = NULL,
                                         wells,
                                         subwatersheds = NULL,
                                         influence_radius = NULL,
@@ -146,9 +147,27 @@ calculate_stream_depletions <- function(streams,
           impacted_length[[i]] <- as.character(NA)
         } else {
           impacted_points[[i]] <- as.character(strm_intersect_indices)
-          m <- max(st_distance(stream_points_geometry[strm_intersect_indices, ]))
-          m <- round(m, 0)
-          impacted_length[[i]] <- as.character(m)
+
+          #-------------------------------------------------------------------------------
+          # finding impacted length by reach
+          all_keys <- as.vector(unlist(st_drop_geometry(stream_points_geometry[strm_intersect_indices,stream_id_key])))
+          
+          coords <- st_coordinates(stream_points_geometry[strm_intersect_indices, ])
+          coords <- cbind(coords, all_keys)
+          coords <- as.data.frame(coords)
+          colnames(coords) <- c('x','y',stream_id_key)
+          
+          split_coords <- split(coords, coords[ ,stream_id_key])
+          
+          lines_list <- lapply(split_coords, function(x) {
+            st_linestring(as.matrix(x[, c("x", "y")]))
+          })
+          lines_geometry <- st_sf(id = names(split_coords),
+                                  geometry = st_sfc(lines_list),
+                                  crs = st_crs(wells))
+          #-------------------------------------------------------------------------------
+          
+          impacted_length[[i]] <- as.character(round(sum(st_length(lines_geometry)),0))
         }
         #-------------------------------------------------------------------------------
       }
@@ -246,9 +265,27 @@ calculate_stream_depletions <- function(streams,
           impacted_length[[i]] <- as.character(NA)
         } else {
           impacted_points[[i]] <- as.character(strm_intersect_indices)
-          m <- max(st_distance(stream_points_geometry[strm_intersect_indices, ]))
-          m <- round(m, 0)
-          impacted_length[[i]] <- as.character(m)
+          
+          #-------------------------------------------------------------------------------
+          # finding impacted length by reach
+          all_keys <- as.vector(unlist(st_drop_geometry(stream_points_geometry[strm_intersect_indices,stream_id_key])))
+          
+          coords <- st_coordinates(stream_points_geometry[strm_intersect_indices, ])
+          coords <- cbind(coords, all_keys)
+          coords <- as.data.frame(coords)
+          colnames(coords) <- c('x','y',stream_id_key)
+          
+          split_coords <- split(coords, coords[ ,stream_id_key])
+          
+          lines_list <- lapply(split_coords, function(x) {
+            st_linestring(as.matrix(x[, c("x", "y")]))
+          })
+          lines_geometry <- st_sf(id = names(split_coords),
+                                  geometry = st_sfc(lines_list),
+                                  crs = st_crs(wells))
+          #-------------------------------------------------------------------------------
+          
+          impacted_length[[i]] <- as.character(round(sum(st_length(lines_geometry)),0))
         }
         #-------------------------------------------------------------------------------
       }
@@ -334,9 +371,27 @@ calculate_stream_depletions <- function(streams,
         impacted_length[[i]] <- as.character(NA)
       } else {
         impacted_points[[i]] <- as.character(strm_intersect_indices)
-        m <- max(st_distance(stream_points_geometry[strm_intersect_indices, ]))
-        m <- round(m, 0)
-        impacted_length[[i]] <- as.character(m)
+        
+        #-------------------------------------------------------------------------------
+        # finding impacted length by reach
+        all_keys <- as.vector(unlist(st_drop_geometry(stream_points_geometry[strm_intersect_indices,stream_id_key])))
+        
+        coords <- st_coordinates(stream_points_geometry[strm_intersect_indices, ])
+        coords <- cbind(coords, all_keys)
+        coords <- as.data.frame(coords)
+        colnames(coords) <- c('x','y',stream_id_key)
+        
+        split_coords <- split(coords, coords[ ,stream_id_key])
+        
+        lines_list <- lapply(split_coords, function(x) {
+          st_linestring(as.matrix(x[, c("x", "y")]))
+        })
+        lines_geometry <- st_sf(id = names(split_coords),
+                                geometry = st_sfc(lines_list),
+                                crs = st_crs(wells))
+        #-------------------------------------------------------------------------------
+        
+        impacted_length[[i]] <- as.character(round(sum(st_length(lines_geometry)),0))
       }
       #-------------------------------------------------------------------------------
     }
@@ -394,9 +449,29 @@ calculate_stream_depletions <- function(streams,
       }
       #-------------------------------------------------------------------------------
       
-
+      
+      #-------------------------------------------------------------------------------
+      # finding impacted length by reach
+      all_keys <- as.vector(unlist(st_drop_geometry(stream_points_geometry[ ,stream_id_key])))
+      
+      coords <- st_coordinates(stream_points_geometry)
+      coords <- cbind(coords, all_keys)
+      coords <- as.data.frame(coords)
+      colnames(coords) <- c('x','y',stream_id_key)
+      
+      split_coords <- split(coords, coords[ ,stream_id_key])
+      
+      lines_list <- lapply(split_coords, function(x) {
+        st_linestring(as.matrix(x[, c("x", "y")]))
+      })
+      lines_geometry <- st_sf(id = names(split_coords),
+                              geometry = st_sfc(lines_list),
+                              crs = st_crs(wells))
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
       impacted_points[[i]] <- as.character(c(1:nrow(stream_points_geometry)))
-      impacted_length[[i]] <- -9999
+      impacted_length[[i]] <- as.character(round(sum(st_length(lines_geometry)),0))
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
@@ -499,10 +574,12 @@ calculate_stream_depletions <- function(streams,
       # getting points from stream linestrings
       stream_points_list <- list()
       average_length <- list()
+      id_list <- list()
       for(i in 1:nrow(streams)){
         coords <- Extract_SF_Linestring_Vertices(streams$geometry[i])
         stream_points_list[[i]] <- cbind(coords[[2]],
                                          coords[[1]])
+        id_list[[i]] <- rep(i, length(coords[[1]]))
         average_length[[i]] <- length(coords[[1]])
       }
       #-------------------------------------------------------------------------------
@@ -520,11 +597,14 @@ calculate_stream_depletions <- function(streams,
                                          coords = c('x','y'),
                                          na.fail = FALSE,
                                          crs = crs(streams))
+      stream_points_geometry$ID <- unlist(id_list)
+      stream_id_key <<- 'ID'
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
       # save memory
       rm(stream_points_list)
+      rm(id_list)
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
@@ -543,6 +623,7 @@ calculate_stream_depletions <- function(streams,
       rm(average_length) # save memory
       #-------------------------------------------------------------------------------
     } else {
+      stream_points_geometry <- streams
       #-------------------------------------------------------------------------------
       # write status to log file
       writeLines(text = sprintf('%s',
@@ -553,9 +634,7 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     
     
-    
-    
-    
+
     
     
     
@@ -613,6 +692,27 @@ calculate_stream_depletions <- function(streams,
                   'exiting program ...'))
       #-------------------------------------------------------------------------------
     } else {}
+    
+    if(streams_are_points == TRUE &
+       is.null(stream_id_key) == TRUE){
+      #-------------------------------------------------------------------------------
+      writeLines(text = sprintf('%s',
+                                'Identifying column for streams required to calculate impacted length but none supplied'),
+                 con = log_file)
+      writeLines(text = sprintf('%s',
+                                'Exiting program ...'),
+                 con = log_file)
+      close(log_file)
+      #-------------------------------------------------------------------------------
+      
+      
+      #-------------------------------------------------------------------------------
+      stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
+                  'Identifying column for streams required to calculate impacted length',
+                  'but none supplied',
+                  'exiting program ...'))
+      #-------------------------------------------------------------------------------
+    }
     #-------------------------------------------------------------------------------
     
     
@@ -713,14 +813,14 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # log message
-    # m1 <- mean(as.numeric(writeout[[2]]$ImpLMet), na.rm = T)
-    # m2 <- median(as.numeric(writeout[[2]]$ImpLMet), na.rm = T)
-    # writeLines(text = sprintf('%s %s',
-    #                           'Mean | Median impacted segment length in meters: ',
-    #                           paste0(as.character(round(m1,0)),
-    #                                  '|',
-    #                                  as.character(round(m2,0)))),
-    #            con = log_file)
+    m1 <- mean(as.numeric(writeout[[2]]$ImpLMet), na.rm = T)
+    m2 <- median(as.numeric(writeout[[2]]$ImpLMet), na.rm = T)
+    writeLines(text = sprintf('%s %s',
+                              'Mean | Median impacted segment length in meters: ',
+                              paste0(as.character(round(m1,0)),
+                                     '|',
+                                     as.character(round(m2,0)))),
+               con = log_file)
     writeLines(text = sprintf('%s',
                               'Found impacted segments without error'),
                con = log_file)
@@ -789,11 +889,11 @@ calculate_stream_depletions <- function(streams,
                         'impacted_points.csv'),
               row.names = FALSE)
     
-    # st_write(output[[2]],
-    #           file.path(data_out_dir,
-    #                     'wells_with_impacted_length.shp'),
-    #           append = FALSE,
-    #           quiet = TRUE)
+    st_write(output[[2]],
+              file.path(data_out_dir,
+                        'wells_with_impacted_length.shp'),
+              append = FALSE,
+              quiet = TRUE)
     
     st_write(output[[3]],
              file.path(data_out_dir,
