@@ -389,6 +389,18 @@ calculate_stream_depletions <- function(streams,
     
     
     
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     #-------------------------------------------------------------------------------
     # before proceeding to well calculations do I have the information I need?
     if(str_to_title(proximity_criteria) %in% c('Adjacent','Adjacent+Expanding') &
@@ -461,7 +473,8 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # calculate which wells impact which stream points
-    if(str_to_title(proximity_criteria) == 'Local Area'){
+    if(str_to_title(proximity_criteria) == 'Local Area' |
+       str_to_title(proximity_criteria) == 'Expanding'){
       
       #-------------------------------------------------------------------------------
       # ensure everything is in the same projection
