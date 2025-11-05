@@ -20,7 +20,8 @@ calculate_stream_depletions <- function(streams,
                                         proximity_criteria = 'adjacent',
                                         data_out_dir = getwd(),
                                         diag_out_dir = getwd(),
-                                        suppress_loading_bar = TRUE)
+                                        suppress_loading_bar = TRUE,
+                                        suppress_console_messages = TRUE)
 {
 
   ############################################################################################
@@ -465,10 +466,8 @@ calculate_stream_depletions <- function(streams,
       #-------------------------------------------------------------------------------
       # ensure everything is in the same projection
       proj_output <- ensure_projections(wells = wells,
-                                        geometry_list = list(subwatersheds,
-                                                             stream_points_geometry))
-      subwatersheds <- proj_output[[1]]
-      stream_points_geometry <- proj_output[[2]]
+                                        geometry_list = list(stream_points_geometry))
+      stream_points_geometry <- proj_output[[1]]
       rm(proj_output)
       #-------------------------------------------------------------------------------
       
@@ -547,7 +546,10 @@ calculate_stream_depletions <- function(streams,
   #-------------------------------------------------------------------------------
   # capture any error output and write to log file
   tryCatch(expr = {
-    cat('Finding which stream reaches are impacted by wells: Step (1/3)')
+    if(suppress_console_messages == FALSE){
+      cat('Finding which stream reaches are impacted by wells: Step (1/3)')
+    }
+    
     status <<- 'find_impacted_stream_segments'
     output <- find_impacted_stream_segments(streams,
                                             wells,
