@@ -1,0 +1,177 @@
+---
+title: "Analytical_Depletion_Example"
+author: "Christopher Dory"
+date: "2025-11-05"
+output: html_document
+---
+
+```{r setup, include=FALSE,  message = FALSE, error = FALSE, warning = FALSE}
+## IMPORTANT 
+## POINT THIS TO YOUR DIRECTORY
+knitr::opts_knit$set(echo = TRUE,
+                      root.dir = getwd())
+```
+
+```{r setup2, include=FALSE, message = FALSE, error = FALSE, warning = FALSE}
+#===========================================================================================
+# Requirements Load
+#===========================================================================================
+library(sf)
+library(sp)
+library(raster)
+library(colorspace)
+library(terra)
+library(lubridate)
+library(stringr)
+library(here)
+options(scipen = 100)
+```
+
+
+
+
+```{r sourcefiles, echo = FALSE, warning = FALSE, message = FALSE}
+for(file in list.files(file.path(getwd()),pattern = '*.R$', full.names = TRUE)){
+  source(file)  
+}
+```
+
+# Introduction
+
+This will be an example of how to calculate stream depletions using the 'Local Area' <br/>
+criteria from Zipper et al. (https://doi.org/10.1029/2018WR024403) <br/>
+<br/>
+For this we will first load in the following files: <br/>
+Shasta groundwater basin <br/>
+Shasta streams <br/>
+<br/>
+And then assign an 'influence radius' to a series of randomly generated wells in the domain <br/>
+The influence radius describes the radius over which a well is expected to produce meaningful <br/>
+depletion. It is defined by Zipper et al. (2019) to be twice the maximum distance from <br/>
+any land point within the domain to its closest stream segment. <br/>
+This ensures that each well has 1 >= segment associated with it. <br/> 
+<br/>
+<br/>
+**NOTES** <br/>
+1) Though the program will attempt to correct differing projections, it is best if they <br/>
+&nbsp;&nbsp;&nbsp; are projected beforehand.<br/>
+2) To avoid depletions predicted for inappropriate locations, please pre-process streams <br/>
+&nbsp;&nbsp;&nbsp; so that they are only within the groundwater basin <br/>
+
+```{r loadshapefiles, warning = FALSE, message = FALSE}
+Shasta_Streams <- st_read(file.path(here::here(),
+                                    'Data',
+                                    'Shapefiles',
+                                    'shasta_mainstreams.shp'), quiet = TRUE)
+Shasta_Streams <- st_zm(Shasta_Streams)
+Shasta_B118 <- st_read(file.path(here::here(),
+                                 'Data',
+                                 'Shapefiles',
+                                 'Bulletin 118 Boundary_shasta.shp'), quiet = TRUE)
+Shasta_B118 <- st_transform(Shasta_B118, 3310)
+Shasta_Streams <- st_intersection(Shasta_Streams, Shasta_B118$geometry)
+```
+
+
+```{r createrandomwells, warning = FALSE, message = FALSE}
+bb <- st_bbox(Shasta_B118)
+set.seed(1)
+x <- runif(n = 500, min = bb['xmin'], max = bb['xmax'])
+y <- runif(n = 500, min = bb['ymin'], max = bb['ymax'])
+random_wells <- cbind(x,y) %>% as.data.frame()
+random_wells <- st_as_sf(random_wells,
+                         coords = c('x','y'),
+                         crs = st_crs(Shasta_B118),
+                         na.fail = FALSE)
+random_wells <- st_intersection(random_wells,
+                                Shasta_B118$geometry)
+```
+
+```{r randomwellplot, warning = FALSE, message = FALSE, fig.height = 10, fig.width = 8, echo = FALSE}
+plot(st_geometry(Shasta_B118), lwd = 3)
+plot(st_geometry(Shasta_Streams), col = 'dodgerblue4', lwd = 2, add = TRUE)
+plot(st_geometry(random_wells), add = TRUE, pch = 19, col = '#A21')
+legend(x = 'topleft',
+       lwd = c(3,2,NA),
+       pch = c(NA,NA,19),
+       col = c('black','dodgerblue4','#A21'),
+       legend = c('Shasta Groundwater Basin','Main Streams','Randomly Placed Wells'))
+```
+
+
+# Local Area Criteria
+
+To implement Zippers 'Local Area' criteria we will create a 100m grid over the domain, <br/>
+take the centroids of those grid cells, clip them by the groundwater basin <br/>
+calculate the distance of each centroid to its closest stream, and then <br/>
+take double the maximum<br/>
+<br/>
+1000m was chosen due to computing power limitations<br/>
+Grid size will change results slightly, but by increasing the number of grid<br/>
+cells by 100 the result only changes by about 1%<br/>
+
+```{r localareacriteria, warning = FALSE, message = FALSE}
+#-------------------------------------------------------------------------------
+# make grid and centroids
+grid <- st_make_grid(Shasta_B118,
+                     cellsize = 1000)
+
+centroids <- st_centroid(grid)
+centroids <- st_intersection(centroids, Shasta_B118$geometry)
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+# find influence radius
+dist_matrix <- st_distance(centroids, Shasta_Streams)
+diag(dist_matrix) <- NA
+min_distances <- apply(dist_matrix, 1, min, na.rm = TRUE)
+
+influence_radius <- max(min_distances)*2
+#-------------------------------------------------------------------------------
+```
+<br/>
+<br/>
+For Shasta the influence radius is calculated <br/>
+here as `r round(influence_radius/1000,0)` kilometers. <br/>
+The below visualization shows wells, with their sized scaled by the length of river <br/>
+that they effect relative to the maximum length. <br/>
+As expected, those at the periphery effect less reach. <br/>
+
+```{r localplot, warning = FALSE, message = FALSE, fig.height = 10, fig.width = 8, echo = FALSE}
+l <- list()
+for(i in 1:nrow(random_wells)){
+  b <- st_buffer(random_wells[i, ], influence_radius)
+  int <- st_intersection(Shasta_Streams, b$geometry)
+  l[[i]] <- sum(st_length(int))
+}
+l <- unlist(l)
+random_wells$length <- l
+random_wells$length_eff <- random_wells$length/max(random_wells$length)
+random_wells$length_eff[random_wells$length_eff < 0.1] <- 0.1
+
+
+bb <- st_bbox(Shasta_B118)
+plot(st_geometry(Shasta_B118), lwd = 3,
+     main = paste0('min L (km): ',
+                   round(min(random_wells$length)/1000,0),
+                   '    ',
+                   'max L (km)',
+                   round(max(random_wells$length)/1000,0)),
+     cex.main = 0.8)
+plot(st_geometry(Shasta_Streams), col = 'dodgerblue4', lwd = 2, add = TRUE)
+plot(st_geometry(random_wells), add = TRUE, pch = 19, col = '#A21', cex = 2*random_wells$length_eff)
+p <- st_point(c((bb['xmax'] + bb['xmin'])/2,
+                (bb['ymax'] + bb['ymin'])/2)) %>% st_sfc(crs = st_crs(Shasta_B118))
+plot(st_buffer(p, influence_radius), add = TRUE, lty = 2, border = 'black')
+legend(x = 'topleft',
+       lwd = c(3,2,NA,2),
+       lty = c(1,1,NA,2),
+       pch = c(NA,NA,19,NA),
+       col = c('black','dodgerblue4','#A21','black'),
+       legend = c('Shasta Groundwater Basin',
+                  'Main Streams',
+                  'Randomly Placed Wells',
+                  'Example Influence Radius'))
+```
+
+
