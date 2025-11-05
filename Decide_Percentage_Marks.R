@@ -55,6 +55,8 @@ Decide_Percentage_Marks <- function(base_values,
         weights <- base_values/(max(base_values)/weight_divisor)
         weights[base_values == 0] <- 0
         weights <- exp(weights)
+        avoid_nans <- (plot_axis/(weighted.mean(x = base_values,
+                                                w = weights)))*100
       } else {
         weights <- (new_values**weight_power)
         weights[new_values == 0] <- 0
@@ -62,8 +64,6 @@ Decide_Percentage_Marks <- function(base_values,
                                                 w = weights)))*100
       }
       # -------------------------------------------------------------------------------------
-      avoid_nans <- (plot_axis/(weighted.mean(x = base_values,
-                                              w = weights)))*100
     }
     # -------------------------------------------------------------------------------------
 
