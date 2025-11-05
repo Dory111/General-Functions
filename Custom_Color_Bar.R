@@ -54,8 +54,10 @@ Custom_Color_Bar <- function(colors,
            color_mat$ytop[j],
            col = color_mat$color[j],
            border = NA)
-      lines(x = c(xright, xright + line_length),
-            y = c(color_mat$ybottom[j],color_mat$ybottom[j]))
+      if(labels_TF == TRUE){
+        lines(x = c(xright, xright + line_length),
+              y = c(color_mat$ybottom[j],color_mat$ybottom[j]))
+      }
     } else {
       rect(color_mat$xleft[j],
            color_mat$ybottom[j],
