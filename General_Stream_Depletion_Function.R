@@ -182,6 +182,111 @@ calculate_stream_depletions <- function(streams,
 
   
   
+  
+  
+  #===========================================================================================
+  # called to find stream points impacted by wells within the same watershed
+  #===========================================================================================
+  find_adjacent_and_expanding_stream_points <- function(wells,
+                                                        subwatersheds,
+                                                        influence_radius,
+                                                        stream_points_geometry)
+  {
+    #-------------------------------------------------------------------------------
+    # for each well first check which subwatershed its within
+    # then remove all other subwatersheds
+    # in paired list check which stream points are also within that subwatershed
+    impacted_points <- list()
+    impacted_length <- list()
+    for(i in 1:nrow(wells)){
+      #-------------------------------------------------------------------------------
+      if(suppress_loading_bar == FALSE){
+        #-------------------------------------------------------------------------------
+        # user message
+        loading_bar(iter = i,
+                    total = nrow(wells),
+                    width = 50,
+                    optional_text = '')
+        #-------------------------------------------------------------------------------
+      }
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # check which subwatershed its within
+      well_intersect_indices <- st_intersects(subwatersheds,
+                                              wells[i, ])
+      rm_empty_intersections <- which(lengths(well_intersect_indices) == 0)
+      well_intersect_indices <- c(1:length(well_intersect_indices))[-c(rm_empty_intersections)]
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # if for some reason outside domain then place NA
+      # else find all stream points within that subwatershed
+      if(length(well_intersect_indices) == 0){
+        impacted_points[[i]] <- as.character(NA)
+        impacted_length[[i]] <- as.character(NA)
+      } else {
+        strm_intersect_indices <- st_intersects(stream_points_geometry,
+                                                st_geometry(subwatersheds[well_intersect_indices, ]))
+        rm_empty_intersections <- which(lengths(strm_intersect_indices) == 0)
+        strm_intersect_indices <- c(1:length(strm_intersect_indices))[-c(rm_empty_intersections)]
+        
+        expanding_indices <- st_intersects(stream_points_geometry,
+                                           st_buffer(wells[i, ], influence_radius))
+        rm_empty_intersections <- which(lengths(expanding_indices) == 0)
+        expanding_indices <- c(1:length(expanding_indices))[-c(rm_empty_intersections)]
+        
+        strm_intersect_indices <- append(strm_intersect_indices,
+                                         expanding_indices)
+        strm_intersect_indices <- unique(strm_intersect_indices)
+        #-------------------------------------------------------------------------------
+        # if there are no streams within the subwatershed
+        if(length(strm_intersect_indices) == 0){
+          impacted_points[[i]] <- as.character(NA)
+          impacted_length[[i]] <- as.character(NA)
+        } else {
+          impacted_points[[i]] <- as.character(strm_intersect_indices)
+          m <- max(st_distance(stream_points_geometry[strm_intersect_indices, ]))
+          m <- round(m, 0)
+          impacted_length[[i]] <- as.character(m)
+        }
+        #-------------------------------------------------------------------------------
+      }
+      #-------------------------------------------------------------------------------
+    }
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # making sure theyre all the same dimension
+    max_impacted_n <- max(lengths(impacted_points))
+    impacted_points <- lapply(impacted_points,
+                              function(x) append(x,
+                                                 rep(NA,max_impacted_n - length(x))))
+    impacted_points <- do.call(rbind, impacted_points)
+    impacted_length <- do.call(rbind, impacted_length)
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # formatting output
+    w_index <- c(1:nrow(wells))
+    wells$ImpLMet <- as.vector(impacted_length)
+    out <- cbind(w_index, impacted_points)
+    colnames(out) <- c('wellN',
+                       paste0('PN',c(1:max_impacted_n)))
+    out <- as.data.frame(out)
+    return(list(out,
+                wells))
+    #-------------------------------------------------------------------------------
+  }
+  #-------------------------------------------------------------------------------
+  
+  
+  
+  
+  
+  
+  
+  
   #===========================================================================================
   # called to find stream points impacted by wells within an influence radius
   # calculated by Zipper et al (2019) https://doi.org/10.1029/2018WR024403
@@ -260,6 +365,70 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
+  
+  
+  
+  #===========================================================================================
+  # all wells impacted by all points
+  #===========================================================================================
+  find_whole_domain_points <- function(wells,
+                                       stream_points_geometry)
+  {
+    #-------------------------------------------------------------------------------
+    # for each well first check which subwatershed its within
+    # then remove all other subwatersheds
+    # in paired list check which stream points are also within that subwatershed
+    impacted_points <- list()
+    impacted_length <- list()
+    for(i in 1:nrow(wells)){
+      
+      #-------------------------------------------------------------------------------
+      if(suppress_loading_bar == FALSE){
+        #-------------------------------------------------------------------------------
+        # user message
+        loading_bar(iter = i,
+                    total = nrow(wells),
+                    width = 50,
+                    optional_text = '')
+        #-------------------------------------------------------------------------------
+      }
+      #-------------------------------------------------------------------------------
+      
+
+      impacted_points[[i]] <- as.character(c(1:nrow(stream_points_geometry)))
+      impacted_length[[i]] <- -9999
+      #-------------------------------------------------------------------------------
+    }
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # making sure theyre all the same dimension
+    max_impacted_n <- max(lengths(impacted_points))
+    impacted_points <- lapply(impacted_points,
+                              function(x) append(x,
+                                                 rep(NA,max_impacted_n - length(x))))
+    impacted_points <- do.call(rbind, impacted_points)
+    impacted_length <- do.call(rbind, impacted_length)
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # formatting output
+    w_index <- c(1:nrow(wells))
+    wells$ImpLMet <- as.vector(impacted_length)
+    out <- cbind(w_index, impacted_points)
+    colnames(out) <- c('wellN',
+                       paste0('PN',c(1:max_impacted_n)))
+    out <- as.data.frame(out)
+    return(list(out,
+                wells))
+    #-------------------------------------------------------------------------------
+  }
+  #-------------------------------------------------------------------------------
+  
+  
+  
+  
+  
   
   
   
@@ -412,6 +581,7 @@ calculate_stream_depletions <- function(streams,
       writeLines(text = sprintf('%s',
                                 'Exiting program ...'),
                  con = log_file)
+      close(log_file)
       #-------------------------------------------------------------------------------
       
       
@@ -432,6 +602,7 @@ calculate_stream_depletions <- function(streams,
       writeLines(text = sprintf('%s',
                                 'Exiting program ...'),
                  con = log_file)
+      close(log_file)
       #-------------------------------------------------------------------------------
       
       
@@ -473,6 +644,32 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # calculate which wells impact which stream points
+    if(str_to_title(proximity_criteria) == 'Adjacent+Expanding'){
+      
+      #-------------------------------------------------------------------------------
+      # ensure everything is in the same projection
+      proj_output <- ensure_projections(wells = wells,
+                                        geometry_list = list(subwatersheds,
+                                                             stream_points_geometry))
+      subwatersheds <- proj_output[[1]]
+      stream_points_geometry <- proj_output[[2]]
+      rm(proj_output)
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # find adjacent stream points
+      writeout <- find_adjacent_and_expanding_stream_points(wells = wells,
+                                                            subwatersheds = subwatersheds,
+                                                            influence_radius = influence_radius,
+                                                            stream_points_geometry = stream_points_geometry)
+      #-------------------------------------------------------------------------------
+    }
+    #-------------------------------------------------------------------------------
+    
+    
+    
+    #-------------------------------------------------------------------------------
+    # calculate which wells impact which stream points
     if(str_to_title(proximity_criteria) == 'Local Area' |
        str_to_title(proximity_criteria) == 'Expanding'){
       
@@ -494,17 +691,36 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     
     
+    #-------------------------------------------------------------------------------
+    # calculate which wells impact which stream points
+    if(str_to_title(proximity_criteria) == 'Whole Domain'){
+      #-------------------------------------------------------------------------------
+      # ensure everything is in the same projection
+      proj_output <- ensure_projections(wells = wells,
+                                        geometry_list = list(stream_points_geometry))
+      stream_points_geometry <- proj_output[[1]]
+      rm(proj_output)
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # associate all stream points with all wells
+      writeout <- find_whole_domain_points(wells = wells,
+                                           stream_points_geometry = stream_points_geometry)
+      #-------------------------------------------------------------------------------
+    }
+    #-------------------------------------------------------------------------------
+    
     
     #-------------------------------------------------------------------------------
     # log message
-    m1 <- mean(as.numeric(writeout[[2]]$ImpLMet), na.rm = T)
-    m2 <- median(as.numeric(writeout[[2]]$ImpLMet), na.rm = T)
-    writeLines(text = sprintf('%s %s',
-                              'Mean | Median impacted segment length in meters: ',
-                              paste0(as.character(round(m1,0)),
-                                     '|',
-                                     as.character(round(m2,0)))),
-               con = log_file)
+    # m1 <- mean(as.numeric(writeout[[2]]$ImpLMet), na.rm = T)
+    # m2 <- median(as.numeric(writeout[[2]]$ImpLMet), na.rm = T)
+    # writeLines(text = sprintf('%s %s',
+    #                           'Mean | Median impacted segment length in meters: ',
+    #                           paste0(as.character(round(m1,0)),
+    #                                  '|',
+    #                                  as.character(round(m2,0)))),
+    #            con = log_file)
     writeLines(text = sprintf('%s',
                               'Found impacted segments without error'),
                con = log_file)
@@ -573,11 +789,11 @@ calculate_stream_depletions <- function(streams,
                         'impacted_points.csv'),
               row.names = FALSE)
     
-    st_write(output[[2]],
-              file.path(data_out_dir,
-                        'wells_with_impacted_length.shp'),
-              append = FALSE,
-              quiet = TRUE)
+    # st_write(output[[2]],
+    #           file.path(data_out_dir,
+    #                     'wells_with_impacted_length.shp'),
+    #           append = FALSE,
+    #           quiet = TRUE)
     
     st_write(output[[3]],
              file.path(data_out_dir,
@@ -602,6 +818,7 @@ calculate_stream_depletions <- function(streams,
     writeLines(text = sprintf('%s',
                               'exiting program...'),
                con = log_file)
+    close(log_file)
     #-------------------------------------------------------------------------------
     
     
