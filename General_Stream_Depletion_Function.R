@@ -1187,17 +1187,17 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # find impacted points by proximity criteria
+    if(is.null(wells_id_key) == TRUE){
+      wells_id_key <- 'ID'
+      wells$ID <- c(1:nrow(wells))
+    } else {}
+    
     output <- find_impacted_stream_segments(streams,
                                             wells,
                                             subwatersheds,
                                             proximity_criteria)
     impacted_points <- output[[1]]
     wells <- output[[2]]
-    
-    if(is.null(wells_id_key) == TRUE){
-      wells_id_key <- 'ID'
-      wells$ID <- c(1:nrow(wells))
-    } else {}
     
     stream_points_geometry <- output[[3]]
     #-------------------------------------------------------------------------------
