@@ -1206,7 +1206,7 @@ calculate_stream_depletions <- function(streams,
     # writeout
     write.csv(impacted_points,
               file.path(data_out_dir,
-                        'impacted_points.csv'),
+                        'impacted_stream_points_by_well.csv'),
               row.names = FALSE)
     
     st_write(wells,
