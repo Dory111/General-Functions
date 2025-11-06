@@ -71,7 +71,19 @@ calculate_stream_depletions <- function(streams,
   # ------------------------------------------------------------------------------------------------
   
   
-
+  #===========================================================================================
+  # install required packages if not present
+  #===========================================================================================
+  require_package <- function(pkg)
+  {
+    if(require(pkg, character.only = TRUE) == FALSE){
+      install.packages(pkg, dependencies = TRUE)
+      library(pkg, character.only = TRUE)
+    } else {
+      library(pkg, character.only = TRUE)
+    }
+  }
+  
   
   #===========================================================================================
   # must be the geometry itself and not the entire sf object
@@ -1147,7 +1159,7 @@ calculate_stream_depletions <- function(streams,
   
   
   
-  
+
   
   
   
@@ -1157,6 +1169,12 @@ calculate_stream_depletions <- function(streams,
   ############################################################################################
   ######################################### RUN FUNCTIONS ####################################
   ############################################################################################
+  required_packages <- c('sf','sp','raster','terra','lubridate','stringr')
+  for(i in 1:length(required_packages)){
+    require_package(required_packages[i])
+  }
+
+  
   #-------------------------------------------------------------------------------
   # open log file to write program execution
   log_file <- file(file.path(diag_out_dir,'log.txt'), 'w')
