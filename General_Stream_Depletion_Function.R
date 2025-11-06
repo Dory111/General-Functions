@@ -20,6 +20,7 @@ calculate_stream_depletions <- function(streams,
                                         subwatersheds = NULL,
                                         influence_radius = NULL,
                                         proximity_criteria = 'adjacent',
+                                        apportionment_criteria = 'inverse distance',
                                         data_out_dir = getwd(),
                                         diag_out_dir = getwd(),
                                         suppress_loading_bar = TRUE,
@@ -503,12 +504,6 @@ calculate_stream_depletions <- function(streams,
   
   
   
-  
-  
-  
-  
-  
-  
   #===========================================================================================
   # convert everything to the projection of the wells
   #===========================================================================================
@@ -525,8 +520,103 @@ calculate_stream_depletions <- function(streams,
   #-------------------------------------------------------------------------------
   
   
+  #===========================================================================================
+  # For each well, find the closest point on the reaches that it impacts
+  #===========================================================================================
+  find_closest_points_per_segment <- function(wells,
+                                              stream_points_geometry,
+                                              stream_id_key){
+    #-------------------------------------------------------------------------------
+    # write status to log
+    writeLines(text = sprintf('%s',
+                              'For each well, finding the closest point on the reaches that it impacts'),
+               con = log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    # get the closest point on each stream segment associated with each well
+    closest_points_per_segment <- list()
+    for(i in 1:nrow(wells)){
+      #-------------------------------------------------------------------------------
+      if(suppress_loading_bar == FALSE){
+        #-------------------------------------------------------------------------------
+        # user message
+        loading_bar(iter = i,
+                    total = nrow(wells),
+                    width = 50,
+                    optional_text = 'Closest Point by Reach')
+        #-------------------------------------------------------------------------------
+      }
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      imp_pts <- as.vector(unlist(impacted_points[i, ])) # get all impacted points for this well
+      imp_pts <- as.numeric(imp_pts)[-c(1)] # get rid of well number
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # if there are no impacted points there can not be a closest one
+      # additionally, trying to index the stream points data frame by a NA, or numeric(0)
+      # would cause an error
+      if(all(is.na(imp_pts)) == TRUE){
+        closest_points_per_segment[[i]] <- NA
+      } else {
+        rm_NA_index <- which(is.na(imp_pts) == TRUE)
+        if(length(rm_NA_index) > 0){
+          imp_pts <- imp_pts[-c(rm_NA_index)] # removing NA indexes
+        }
+        
+        #-------------------------------------------------------------------------------
+        # for each stream reach impacted by the well, what is the closest point on that segment
+        stream_points_subset <- stream_points_geometry[imp_pts, ]
+        stream_points_subset_inner <- split(stream_points_subset,
+                                            st_drop_geometry(stream_points_subset[ ,stream_id_key]))
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        closest_points <- lapply(stream_points_subset_inner,
+                                 function(x){
+                                   rownames <- row.names(x)
+                                   closest_index <- rownames[which.min(st_distance(wells[i, ], x))]
+                                   as.numeric(closest_index)
+                                 })
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # record the indices of the closest points to each well
+        closest_points_per_segment[[i]] <- unlist(closest_points)
+        #-------------------------------------------------------------------------------
+      }
+      #-------------------------------------------------------------------------------
+    }
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    max_closest_n <- max(lengths(closest_points_per_segment))
+    mean_closest_n <- round(mean(lengths(closest_points_per_segment)),0)
+    median_closest_n <- round(median(lengths(closest_points_per_segment)),0)
+    closest_points_per_segment <- lapply(closest_points_per_segment,
+                                         function(x) append(x,
+                                                            rep(NA,max_impacted_n - length(x))))
+    closest_points_per_segment <- do.call(rbind, closest_points_per_segment)
+    #-------------------------------------------------------------------------------
 
-  
+    #-------------------------------------------------------------------------------
+    # write status to log
+    writeLines(text = sprintf('%s %s',
+                              'Max | Mean | Median number of reaches effected per well: ',
+                              paste(max_closest_n,
+                                    '|',
+                                    mean_closest_n,
+                                    '|',
+                                    median_closest_n)),
+               con = log_file)
+    #-------------------------------------------------------------------------------
+    
+    return(closest_points_per_segment)
+  }
+  #-------------------------------------------------------------------------------
   
   
   
@@ -842,6 +932,49 @@ calculate_stream_depletions <- function(streams,
   
 
   
+  #===========================================================================================
+  # Apportions depletions based on given criteria
+  #===========================================================================================
+  calculate_depletion_apportionments <- function(wells,
+                                                 apportionment_criteria,
+                                                 stream_points_geometry,
+                                                 stream_id_key){
+    #-------------------------------------------------------------------------------
+    # write status to log
+    writeLines(text = sprintf('%s %s',
+                              '####',
+                              'Apportioning Depletions For Each Well'),
+               con = log_file)
+    
+    writeLines(text = sprintf('%s %s',
+                              'Well apportionment criteria: ',
+                              str_to_title(apportionment_criteria)),
+               con = log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    
+    #-------------------------------------------------------------------------------
+    if(str_to_title(apportionment_criteria) %in% c('Inverse Distance',
+                                                   'Inverse Distance Squared',
+                                                   'Thiessen Polygon')){
+      closest_points_per_segment <- find_closest_points_per_segment(wells = wells,
+                                                                    stream_points_geometry = stream_points_geometry,
+                                                                    stream_id_key = stream_id_key)
+      
+    }
+    #-------------------------------------------------------------------------------
+    
+    
+    return(1)
+  }
+  #-------------------------------------------------------------------------------
+  
+  
+  
+  
+  
+  
   
   
   
@@ -885,7 +1018,6 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # find impacted points by proximity criteria
-    status <<- 'find_impacted_stream_segments'
     output <- find_impacted_stream_segments(streams,
                                             wells,
                                             subwatersheds,
@@ -893,7 +1025,7 @@ calculate_stream_depletions <- function(streams,
     impacted_points <- output[[1]]
     wells <- output[[2]]
     
-    if(wells_id_key == TRUE){
+    if(is.null(wells_id_key) == TRUE){
       wells_id_key <- 'ID'
       wells$ID <- c(1:nrow(wells))
     } else {}
@@ -923,13 +1055,15 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # save space
-    rm(status)
     rm(output)
+    writeLines(text = sprintf('%s',
+                              ''),
+               con = log_file)
     #-------------------------------------------------------------------------------
   }, error = function(e){
     #-------------------------------------------------------------------------------
     # write error to log file
-    status <<- 'find_impacted_stream_segments'
+    status <- 'find_impacted_stream_segments'
     writeLines(text = sprintf('%s %s',
                               'ENCOUNTERED ERROR: ',
                               class(e)[1]),
@@ -946,7 +1080,6 @@ calculate_stream_depletions <- function(streams,
                               'exiting program...'),
                con = log_file)
     close(log_file)
-    rm(status)
     #-------------------------------------------------------------------------------
     
     
@@ -961,6 +1094,101 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
   })
   #-------------------------------------------------------------------------------
+  
+  
+  
+  
+  
+  
+  ############################################################################################
+  # run depletion apportionments
+  
+  #-------------------------------------------------------------------------------
+  # capture any error output and write to log file
+  tryCatch(expr = {
+    #-------------------------------------------------------------------------------
+    # user message
+    if(suppress_console_messages == FALSE){
+      cat('Apportioning Depletions Per Well: Step (2/3)')
+    }
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # find impacted points by proximity criteria
+    output <- calculate_depletion_apportionments(stream_points_geometry = stream_points_geometry,
+                                                 stream_id_key = stream_id_key,
+                                                 wells = wells,
+                                                 apportionment_criteria = apportionment_criteria)
+    # impacted_points <- output[[1]]
+    # wells <- output[[2]]
+    # 
+    # if(wells_id_key == TRUE){
+    #   wells_id_key <- 'ID'
+    #   wells$ID <- c(1:nrow(wells))
+    # } else {}
+    # 
+    # stream_points_geometry <- output[[3]]
+    # #-------------------------------------------------------------------------------
+    # 
+    # #-------------------------------------------------------------------------------
+    # # writeout
+    # write.csv(impacted_points,
+    #           file.path(data_out_dir,
+    #                     'impacted_points.csv'),
+    #           row.names = FALSE)
+    # 
+    # st_write(wells,
+    #          file.path(data_out_dir,
+    #                    'wells_with_impacted_length.shp'),
+    #          append = FALSE,
+    #          quiet = TRUE)
+    # 
+    # st_write(stream_points_geometry,
+    #          file.path(data_out_dir,
+    #                    'stream_points.shp'),
+    #          append = FALSE,
+    #          quiet = TRUE)
+    # #-------------------------------------------------------------------------------
+    # 
+    # #-------------------------------------------------------------------------------
+    # # save space
+    # rm(output)
+    # #-------------------------------------------------------------------------------
+  }, error = function(e){
+    #-------------------------------------------------------------------------------
+    # write error to log file
+    status <- 'calculate_depletion_apportionments'
+    writeLines(text = sprintf('%s %s',
+                              'ENCOUNTERED ERROR: ',
+                              class(e)[1]),
+               con = log_file)
+    writeLines(text = sprintf('%s %s',
+                              'ON COMMAND: ',
+                              paste0(e$call,collapse = ' ')),
+               con = log_file)
+    writeLines(text = sprintf('%s %s',
+                              'FOR REASON: ',
+                              paste0(e$message, collapse = ' ')),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'exiting program...'),
+               con = log_file)
+    close(log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    # write error to console
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ', class(e)[1],'\n',
+                'during:    ', status,'\n',
+                'on command:    ', paste0(e$call,collapse = ' '),'\n',
+                'for reason:    ', paste0(e$message, collapse = ' '),'\n',
+                'for more information see the log.txt file output\n',
+                'exiting program ...'))
+    #-------------------------------------------------------------------------------
+  })
+  #-------------------------------------------------------------------------------
+  
   
   
   #-------------------------------------------------------------------------------
