@@ -16,6 +16,7 @@ calculate_stream_depletions <- function(streams,
                                         streams_are_points = FALSE,
                                         stream_id_key = NULL,
                                         wells,
+                                        wells_id_key = NULL,
                                         subwatersheds = NULL,
                                         influence_radius = NULL,
                                         proximity_criteria = 'adjacent',
@@ -891,6 +892,12 @@ calculate_stream_depletions <- function(streams,
                                             proximity_criteria)
     impacted_points <- output[[1]]
     wells <- output[[2]]
+    
+    if(wells_id_key == TRUE){
+      wells_id_key <- 'ID'
+      wells$ID <- c(1:nrow(wells))
+    } else {}
+    
     stream_points_geometry <- output[[3]]
     #-------------------------------------------------------------------------------
     
