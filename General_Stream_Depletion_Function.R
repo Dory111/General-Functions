@@ -727,6 +727,7 @@ calculate_stream_depletions <- function(streams,
     
     
     #-------------------------------------------------------------------------------
+    # format writeout pt 1
     max_frac_len <- max(lengths(fractions_of_depletions))
     fractions_of_depletions <- lapply(fractions_of_depletions,
                                       function(x) append(x,
@@ -735,21 +736,8 @@ calculate_stream_depletions <- function(streams,
                       function(x) append(x,
                                          rep(NA,max_impacted_n - length(x))))
     fractions_of_depletions <- do.call(rbind, fractions_of_depletions)
-    w_index <- as.vector(unlist(st_drop_geometry(wells[ ,wells_id_key])))
-    fractions_of_depletions <- cbind(w_index, fractions_of_depletions)
-    fractions_of_depletions <- as.data.frame(fractions_of_depletions)
-    colnames(fractions_of_depletions) <- c('wellN',
-                                           paste0('REff',
-                                                  1:(ncol(fractions_of_depletions)-1)))
-    
     reaches <- do.call(rbind, reaches)
-    reaches <- cbind(w_index, reaches)
-    reaches <- as.data.frame(reaches)
-    colnames(reaches) <- c('wellN',
-                            paste0('RN',
-                                   1:(ncol(reaches)-1)))
     #-------------------------------------------------------------------------------
-    
     
     #-------------------------------------------------------------------------------
     # writeout statistics
@@ -759,6 +747,23 @@ calculate_stream_depletions <- function(streams,
     well_max_dep <- unlist(as.vector(st_drop_geometry(wells[wm[1,1],wells_id_key])))
     #-------------------------------------------------------------------------------
     
+
+    #-------------------------------------------------------------------------------
+    # format writeout pt 2
+    w_index <- as.vector(unlist(st_drop_geometry(wells[ ,wells_id_key])))
+    fractions_of_depletions <- cbind(w_index, fractions_of_depletions)
+    fractions_of_depletions <- as.data.frame(fractions_of_depletions)
+    colnames(fractions_of_depletions) <- c('wellN',
+                                           paste0('REff',
+                                                  1:(ncol(fractions_of_depletions)-1)))
+    reaches <- cbind(w_index, reaches)
+    reaches <- as.data.frame(reaches)
+    colnames(reaches) <- c('wellN',
+                            paste0('RN',
+                                   1:(ncol(reaches)-1)))
+    #-------------------------------------------------------------------------------
+    
+
     #-------------------------------------------------------------------------------
     # write status to log
     writeLines(text = sprintf('%s %s',
@@ -1257,7 +1262,7 @@ calculate_stream_depletions <- function(streams,
                con = log_file)
     writeLines(text = sprintf('%s %s',
                               'ON COMMAND: ',
-                              paste0(e$call,collapse = ' ')),
+                              paste0(capture.output(e$call),collapse = ' ')),
                con = log_file)
     writeLines(text = sprintf('%s %s',
                               'FOR REASON: ',
@@ -1274,7 +1279,7 @@ calculate_stream_depletions <- function(streams,
     # write error to console
     stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ', class(e)[1],'\n',
                 'during:    ', status,'\n',
-                'on command:    ', paste0(e$call,collapse = ' '),'\n',
+                'on command:    ', paste0(capture.output(e$call),collapse = ' '),'\n',
                 'for reason:    ', paste0(e$message, collapse = ' '),'\n',
                 'for more information see the log.txt file output\n',
                 'exiting program ...'))
@@ -1337,7 +1342,7 @@ calculate_stream_depletions <- function(streams,
                con = log_file)
     writeLines(text = sprintf('%s %s',
                               'ON COMMAND: ',
-                              paste0(e$call,collapse = ' ')),
+                              paste0(capture.output(e$call),collapse = ' ')),
                con = log_file)
     writeLines(text = sprintf('%s %s',
                               'FOR REASON: ',
@@ -1354,7 +1359,7 @@ calculate_stream_depletions <- function(streams,
     # write error to console
     stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ', class(e)[1],'\n',
                 'during:    ', status,'\n',
-                'on command:    ', paste0(e$call,collapse = ' '),'\n',
+                'on command:    ', paste0(capture.output(e$call),collapse = ' '),'\n',
                 'for reason:    ', paste0(e$message, collapse = ' '),'\n',
                 'for more information see the log.txt file output\n',
                 'exiting program ...'))
