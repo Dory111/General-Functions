@@ -1299,11 +1299,10 @@ calculate_stream_depletions <- function(streams,
                         'reach_depletion_fraction_by_well.csv'),
               row.names = FALSE)
 
-    write.csv(wells,
+    write.csv(impacted_reaches,
               file.path(data_out_dir,
                         'impacted_reaches_by_well.csv'),
-              append = FALSE,
-              quiet = TRUE)
+              row.names = FALSE)
     #-------------------------------------------------------------------------------
 
     #-------------------------------------------------------------------------------
