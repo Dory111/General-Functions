@@ -875,34 +875,54 @@ calculate_stream_depletions <- function(streams,
   #-------------------------------------------------------------------------------
   # capture any error output and write to log file
   tryCatch(expr = {
+    #-------------------------------------------------------------------------------
+    # user message
     if(suppress_console_messages == FALSE){
       cat('Finding which stream reaches are impacted by wells: Step (1/3)')
     }
+    #-------------------------------------------------------------------------------
     
+    #-------------------------------------------------------------------------------
+    # find impacted points by proximity criteria
     status <<- 'find_impacted_stream_segments'
     output <- find_impacted_stream_segments(streams,
                                             wells,
                                             subwatersheds,
                                             proximity_criteria)
-    write.csv(output[[1]],
+    impacted_points <- output[[1]]
+    wells <- output[[2]]
+    stream_points_geometry <- output[[3]]
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # writeout
+    write.csv(impacted_points,
               file.path(data_out_dir,
                         'impacted_points.csv'),
               row.names = FALSE)
     
-    st_write(output[[2]],
+    st_write(wells,
               file.path(data_out_dir,
                         'wells_with_impacted_length.shp'),
               append = FALSE,
               quiet = TRUE)
     
-    st_write(output[[3]],
+    st_write(stream_points_geometry,
              file.path(data_out_dir,
                        'stream_points.shp'),
              append = FALSE,
              quiet = TRUE)
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # save space
+    rm(status)
+    rm(output)
+    #-------------------------------------------------------------------------------
   }, error = function(e){
     #-------------------------------------------------------------------------------
     # write error to log file
+    status <<- 'find_impacted_stream_segments'
     writeLines(text = sprintf('%s %s',
                               'ENCOUNTERED ERROR: ',
                               class(e)[1]),
@@ -919,6 +939,7 @@ calculate_stream_depletions <- function(streams,
                               'exiting program...'),
                con = log_file)
     close(log_file)
+    rm(status)
     #-------------------------------------------------------------------------------
     
     
@@ -930,7 +951,6 @@ calculate_stream_depletions <- function(streams,
                 'for reason:    ', paste0(e$message, collapse = ' '),'\n',
                 'for more information see the log.txt file output\n',
                 'exiting program ...'))
-    rm(status)
     #-------------------------------------------------------------------------------
   })
   #-------------------------------------------------------------------------------
