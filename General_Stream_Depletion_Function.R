@@ -1152,6 +1152,16 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     
     
+    #-------------------------------------------------------------------------------
+    # log message
+    writeLines(text = sprintf('%s',
+                              'Apportioned depletions without error'),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'Moving to next step ...'),
+               con = log_file)
+    #-------------------------------------------------------------------------------
+    
     return(output)
   }
   #-------------------------------------------------------------------------------
