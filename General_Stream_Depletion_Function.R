@@ -1122,13 +1122,24 @@ calculate_stream_depletions <- function(streams,
     
     
     #-------------------------------------------------------------------------------
+    # find what points are important for each well
     if(str_to_title(apportionment_criteria) %in% c('Inverse Distance',
                                                    'Inverse Distance Squared',
                                                    'Thiessen Polygon')){
+      
+      w_index <- as.vector(unlist(st_drop_geometry(wells[ ,wells_id_key])))
       closest_points_per_segment <- find_closest_points_per_segment(wells = wells,
                                                                     stream_points_geometry = stream_points_geometry,
                                                                     stream_id_key = stream_id_key)
+      closest_points_per_segment <- cbind(w_index,
+                                          closest_points_per_segment)
+      closest_points_per_segment <- as.data.frame(closest_points_per_segment)
+      colnames(closest_points_per_segment) <- c('wellN',
+                                                paste0('RN',
+                                                       1:(ncol(closest_points_per_segment)-1)))
       
+    } else {
+      closest_points_per_segment <- NULL # otherwise if web method used all points are important
     }
     #-------------------------------------------------------------------------------
     
@@ -1162,7 +1173,8 @@ calculate_stream_depletions <- function(streams,
                con = log_file)
     #-------------------------------------------------------------------------------
     
-    return(output)
+    return(list(output,
+                closest_points_per_segment))
   }
   #-------------------------------------------------------------------------------
   
@@ -1324,6 +1336,7 @@ calculate_stream_depletions <- function(streams,
     
     reach_impact_frac <- output[[1]]
     impacted_reaches <- output[[2]]
+    closest_points_per_segment <- output[[3]]
     
     #-------------------------------------------------------------------------------
     # writeout
@@ -1336,6 +1349,15 @@ calculate_stream_depletions <- function(streams,
               file.path(data_out_dir,
                         'impacted_reaches_by_well.csv'),
               row.names = FALSE)
+    
+    if(str_to_title(apportionment_criteria) %in% c('Inverse Distance',
+                                                   'Inverse Distance Squared',
+                                                   'Thiessen Polygon')){
+      write.csv(closest_points_per_segment,
+                file.path(data_out_dir,
+                          'closest_points_per_reach_per_well.csv'),
+                row.names = FALSE)
+    }
     #-------------------------------------------------------------------------------
 
     #-------------------------------------------------------------------------------
