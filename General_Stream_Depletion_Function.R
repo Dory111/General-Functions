@@ -189,7 +189,7 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # formatting output
-    w_index <- c(1:nrow(wells))
+    w_index <- as.vector(unlist(st_drop_geometry(wells[ ,wells_id_key])))
     wells$ImpLMet <- as.vector(impacted_length)
     out <- cbind(w_index, impacted_points)
     colnames(out) <- c('wellN',
@@ -307,7 +307,7 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # formatting output
-    w_index <- c(1:nrow(wells))
+    w_index <- as.vector(unlist(st_drop_geometry(wells[ ,wells_id_key])))
     wells$ImpLMet <- as.vector(impacted_length)
     out <- cbind(w_index, impacted_points)
     colnames(out) <- c('wellN',
@@ -411,7 +411,7 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # formatting output
-    w_index <- c(1:nrow(wells))
+    w_index <- as.vector(unlist(st_drop_geometry(wells[ ,wells_id_key])))
     wells$ImpLMet <- as.vector(impacted_length)
     out <- cbind(w_index, impacted_points)
     colnames(out) <- c('wellN',
@@ -490,7 +490,7 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # formatting output
-    w_index <- c(1:nrow(wells))
+    w_index <- as.vector(unlist(st_drop_geometry(wells[ ,wells_id_key])))
     wells$ImpLMet <- as.vector(impacted_length)
     out <- cbind(w_index, impacted_points)
     colnames(out) <- c('wellN',
@@ -723,7 +723,19 @@ calculate_stream_depletions <- function(streams,
                       function(x) append(x,
                                          rep(NA,max_impacted_n - length(x))))
     fractions_of_depletions <- do.call(rbind, fractions_of_depletions)
+    w_index <- as.vector(unlist(st_drop_geometry(wells[ ,wells_id_key])))
+    fractions_of_depletions <- cbind(w_index, fractions_of_depletions)
+    fractions_of_depletions <- as.data.frame(fractions_of_depletions)
+    colnames(fractions_of_depletions) <- c('wellN',
+                                           paste0('REff',
+                                                  1:(ncol(fractions_of_depletions)-1)))
+    
     reaches <- do.call(rbind, reaches)
+    reaches <- cbind(w_index, reaches)
+    reaches <- as.data.frame(reaches)
+    colnames(reaches) <- c('wellN',
+                            paste0('RN',
+                                   1:(ncol(reaches)-1)))
     #-------------------------------------------------------------------------------
     
     
@@ -754,6 +766,9 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
+  
+  
+  
   
   
   ############################################################################################
@@ -1273,41 +1288,28 @@ calculate_stream_depletions <- function(streams,
                                                  stream_id_key = stream_id_key,
                                                  wells = wells,
                                                  apportionment_criteria = apportionment_criteria)
-    # impacted_points <- output[[1]]
-    # wells <- output[[2]]
-    # 
-    # if(wells_id_key == TRUE){
-    #   wells_id_key <- 'ID'
-    #   wells$ID <- c(1:nrow(wells))
-    # } else {}
-    # 
-    # stream_points_geometry <- output[[3]]
-    # #-------------------------------------------------------------------------------
-    # 
-    # #-------------------------------------------------------------------------------
-    # # writeout
-    # write.csv(impacted_points,
-    #           file.path(data_out_dir,
-    #                     'impacted_points.csv'),
-    #           row.names = FALSE)
-    # 
-    # st_write(wells,
-    #          file.path(data_out_dir,
-    #                    'wells_with_impacted_length.shp'),
-    #          append = FALSE,
-    #          quiet = TRUE)
-    # 
-    # st_write(stream_points_geometry,
-    #          file.path(data_out_dir,
-    #                    'stream_points.shp'),
-    #          append = FALSE,
-    #          quiet = TRUE)
-    # #-------------------------------------------------------------------------------
-    # 
-    # #-------------------------------------------------------------------------------
-    # # save space
-    # rm(output)
-    # #-------------------------------------------------------------------------------
+    
+    reach_impact_frac <- output[[1]]
+    impacted_reaches <- output[[2]]
+    
+    #-------------------------------------------------------------------------------
+    # writeout
+    write.csv(reach_impact_frac,
+              file.path(data_out_dir,
+                        'reach_depletion_fraction_by_well.csv'),
+              row.names = FALSE)
+
+    write.csv(wells,
+              file.path(data_out_dir,
+                        'impacted_reaches_by_well.csv'),
+              append = FALSE,
+              quiet = TRUE)
+    #-------------------------------------------------------------------------------
+
+    #-------------------------------------------------------------------------------
+    # save space
+    rm(output)
+    #-------------------------------------------------------------------------------
   }, error = function(e){
     #-------------------------------------------------------------------------------
     # write error to log file
