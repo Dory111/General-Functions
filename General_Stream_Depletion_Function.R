@@ -612,7 +612,7 @@ calculate_stream_depletions <- function(streams,
     median_closest_n <- round(median(lengths(closest_points_per_segment)),0)
     closest_points_per_segment <- lapply(closest_points_per_segment,
                                          function(x) append(x,
-                                                            rep(NA,max_impacted_n - length(x))))
+                                                            rep(NA,max_closest_n - length(x))))
     closest_points_per_segment <- do.call(rbind, closest_points_per_segment)
     #-------------------------------------------------------------------------------
 
@@ -731,10 +731,10 @@ calculate_stream_depletions <- function(streams,
     max_frac_len <- max(lengths(fractions_of_depletions))
     fractions_of_depletions <- lapply(fractions_of_depletions,
                                       function(x) append(x,
-                                                         rep(NA,max_impacted_n - length(x))))
+                                                         rep(NA,max_frac_len - length(x))))
     reaches <- lapply(reaches,
                       function(x) append(x,
-                                         rep(NA,max_impacted_n - length(x))))
+                                         rep(NA,max_frac_len - length(x))))
     fractions_of_depletions <- do.call(rbind, fractions_of_depletions)
     reaches <- do.call(rbind, reaches)
     #-------------------------------------------------------------------------------
@@ -1135,7 +1135,7 @@ calculate_stream_depletions <- function(streams,
                                           closest_points_per_segment)
       closest_points_per_segment <- as.data.frame(closest_points_per_segment)
       colnames(closest_points_per_segment) <- c('wellN',
-                                                paste0('RN',
+                                                paste0('PN',
                                                        1:(ncol(closest_points_per_segment)-1)))
       
     } else {
@@ -1173,7 +1173,8 @@ calculate_stream_depletions <- function(streams,
                con = log_file)
     #-------------------------------------------------------------------------------
     
-    return(list(output,
+    return(list(output[[1]],
+                output[[2]],
                 closest_points_per_segment))
   }
   #-------------------------------------------------------------------------------
