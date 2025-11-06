@@ -520,6 +520,8 @@ calculate_stream_depletions <- function(streams,
   #-------------------------------------------------------------------------------
   
   
+  
+  
   #===========================================================================================
   # For each well, find the closest point on the reaches that it impacts
   #===========================================================================================
@@ -619,6 +621,139 @@ calculate_stream_depletions <- function(streams,
   #-------------------------------------------------------------------------------
   
   
+  
+  #===========================================================================================
+  # Apportion depletions by inverse distance method
+  #===========================================================================================
+  inverse_distance_apportionment <- function(power,
+                                             wells,
+                                             closest_points_per_segment,
+                                             stream_points_geometry)
+  {
+    #-------------------------------------------------------------------------------
+    # inverse distance equation in zipper
+    # https://doi.org/10.1029/2018WR024403
+    equation <- function(well,
+                         power = power,
+                         closest_points_per_well,
+                         stream_points_geometry = stream_points_geometry)
+    {
+      closest_points <- stream_points_geometry[closest_points_per_well, ]
+      reaches <- st_drop_geometry(stream_points_geometry[closest_points_per_well,stream_id_key])
+      reaches <- as.vector(unlist(reaches))
+      
+      dists <- as.vector(st_distance(well,
+                                     st_geometry(closest_points)))
+      
+      numerator <- 1/(dists)**power
+      denominator <- sum(1/(dists)**power)
+      fractions_of_depletions <- numerator/denominator
+      
+      return(list(fractions_of_depletions,
+                  reaches))
+    }
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    # use inverse distance weighting to assign fractions of depletions
+    fractions_of_depletions <- list()
+    reaches <- list()
+    for(i in 1:nrow(wells)){
+      #-------------------------------------------------------------------------------
+      if(suppress_loading_bar == FALSE){
+        #-------------------------------------------------------------------------------
+        # user message
+        loading_bar(iter = i,
+                    total = nrow(wells),
+                    width = 50,
+                    optional_text = 'Apportioning Depletions')
+        #-------------------------------------------------------------------------------
+      }
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      closest_points_per_well <- closest_points_per_segment[i, ]
+      closest_points_per_well <- as.vector(unlist(closest_points_per_well))
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # are there any depletions to apportion? if yes continue, if not append NA
+      if(all(is.na(closest_points_per_well)) == FALSE){
+        
+        
+        #-------------------------------------------------------------------------------
+        # are there any NAs to remove to avoid indexing the stream points by NA
+        rm_indices <- which(is.na(closest_points_per_well) == TRUE)
+        if(length(rm_indices) > 0){
+          #-------------------------------------------------------------------------------
+          closest_points_per_well <- closest_points_per_well[-c(rm_indices)] %>%
+            as.vector() %>% unlist()
+          #-------------------------------------------------------------------------------
+        } else {}
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # assign fractions
+        output <- equation(well = wells[i, ],
+                           power = power,
+                           closest_points_per_well = closest_points_per_well,
+                           stream_points_geometry = stream_points_geometry)
+        fractions_of_depletions[[i]] <- output[[1]]
+        reaches[[i]] <- output[[2]]
+        #-------------------------------------------------------------------------------
+        
+      } else {
+        
+        reaches[[i]] <- NA
+        fractions_of_depletions[[i]] <- NA
+        
+      }
+      #-------------------------------------------------------------------------------
+    }
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    max_frac_len <- max(lengths(fractions_of_depletions))
+    fractions_of_depletions <- lapply(fractions_of_depletions,
+                                      function(x) append(x,
+                                                         rep(NA,max_impacted_n - length(x))))
+    reaches <- lapply(reaches,
+                      function(x) append(x,
+                                         rep(NA,max_impacted_n - length(x))))
+    fractions_of_depletions <- do.call(rbind, fractions_of_depletions)
+    reaches <- do.call(rbind, reaches)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    # writeout statistics
+    max_dep <- max(fractions_of_depletions, na.rm = T)
+    wm <- which(fractions_of_depletions == max_dep, arr.ind = TRUE)
+    reach_max_dep <- reaches[wm]
+    well_max_dep <- unlist(as.vector(st_drop_geometry(wells[wm[1,1],wells_id_key])))
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # write status to log
+    writeLines(text = sprintf('%s %s',
+                              'Max apportioned depletion fraction: ',
+                              paste(round(max_dep,4),
+                                    'for reach',
+                                    reach_max_dep,
+                                    'for well',
+                                    well_max_dep)),
+               con = log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    return(list(fractions_of_depletions,
+                reaches))
+    #-------------------------------------------------------------------------------
+  }
+  #-------------------------------------------------------------------------------
   
   
   ############################################################################################
@@ -966,7 +1101,26 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     
     
-    return(1)
+    #-------------------------------------------------------------------------------
+    # Inverse distance apportionment
+    if(str_to_title(apportionment_criteria) %in% c('Inverse Distance',
+                                                   'Inverse Distance Squared')){
+      if(str_to_title(apportionment_criteria) == 'Inverse Distance Squared'){
+        power <- 2
+      } else {
+        power <- 1
+      }
+      
+      output <- inverse_distance_apportionment(power = power,
+                                               wells = wells,
+                                               closest_points_per_segment = closest_points_per_segment,
+                                               stream_points_geometry = stream_points_geometry)
+      
+    }
+    #-------------------------------------------------------------------------------
+    
+    
+    return(output)
   }
   #-------------------------------------------------------------------------------
   
