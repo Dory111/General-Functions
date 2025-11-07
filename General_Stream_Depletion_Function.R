@@ -148,11 +148,26 @@ calculate_stream_depletions <- function(streams,
         impacted_points[[i]] <- as.character(NA)
         impacted_length[[i]] <- as.character(NA)
       } else {
+        #-------------------------------------------------------------------------------
+        # check which subwatershed touches original subwatershed
+        subwatershed_touches_indices <- st_touches(subwatersheds,
+                                                   subwatersheds[well_intersect_indices, ])
+        subwatershed_touches_indices <- which(lengths(subwatershed_touches_indices) == 0)
+        subwatershed_touches_indices <- c(1:length(subwatershed_touches_indices))[-c(rm_empty_intersections)]
+        
+        if(length(subwatershed_touches_indices) > 0){
+          well_intersect_indices <- append(well_intersect_indices,
+                                           subwatershed_touches_indices)
+        } else {}
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # find which streams are within adjacent watersheds
         strm_intersect_indices <- st_intersects(stream_points_geometry,
                                                 st_geometry(subwatersheds[well_intersect_indices, ]))
         rm_empty_intersections <- which(lengths(strm_intersect_indices) == 0)
         strm_intersect_indices <- c(1:length(strm_intersect_indices))[-c(rm_empty_intersections)]
-        
+        #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
         # if there are no streams within the subwatershed
@@ -252,6 +267,7 @@ calculate_stream_depletions <- function(streams,
       well_intersect_indices <- c(1:length(well_intersect_indices))[-c(rm_empty_intersections)]
       #-------------------------------------------------------------------------------
       
+      
       #-------------------------------------------------------------------------------
       # if for some reason outside domain then place NA
       # else find all stream points within that subwatershed
@@ -259,19 +275,42 @@ calculate_stream_depletions <- function(streams,
         impacted_points[[i]] <- as.character(NA)
         impacted_length[[i]] <- as.character(NA)
       } else {
+        #-------------------------------------------------------------------------------
+        # check which subwatershed touches original subwatershed
+        subwatershed_touches_indices <- st_touches(subwatersheds,
+                                                   subwatersheds[well_intersect_indices, ])
+        subwatershed_touches_indices <- which(lengths(subwatershed_touches_indices) == 0)
+        subwatershed_touches_indices <- c(1:length(subwatershed_touches_indices))[-c(rm_empty_intersections)]
+        
+        if(length(subwatershed_touches_indices) > 0){
+          well_intersect_indices <- append(well_intersect_indices,
+                                           subwatershed_touches_indices)
+        } else {}
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # find which streams are within adjacent watersheds
         strm_intersect_indices <- st_intersects(stream_points_geometry,
                                                 st_geometry(subwatersheds[well_intersect_indices, ]))
         rm_empty_intersections <- which(lengths(strm_intersect_indices) == 0)
         strm_intersect_indices <- c(1:length(strm_intersect_indices))[-c(rm_empty_intersections)]
+        #-------------------------------------------------------------------------------
         
+        #-------------------------------------------------------------------------------
+        # find which streams are within influence radius
         expanding_indices <- st_intersects(stream_points_geometry,
                                            st_buffer(wells[i, ], influence_radius))
         rm_empty_intersections <- which(lengths(expanding_indices) == 0)
         expanding_indices <- c(1:length(expanding_indices))[-c(rm_empty_intersections)]
+        #-------------------------------------------------------------------------------
         
+        #-------------------------------------------------------------------------------
+        # append
         strm_intersect_indices <- append(strm_intersect_indices,
                                          expanding_indices)
         strm_intersect_indices <- unique(strm_intersect_indices)
+        #-------------------------------------------------------------------------------
+        
         #-------------------------------------------------------------------------------
         # if there are no streams within the subwatershed
         if(length(strm_intersect_indices) == 0){
