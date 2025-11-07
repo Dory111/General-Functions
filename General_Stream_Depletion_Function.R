@@ -1359,7 +1359,7 @@ calculate_stream_depletions <- function(streams,
     m1 <- mean(as.numeric(writeout[[2]]$ImpLMet), na.rm = T)
     m2 <- median(as.numeric(writeout[[2]]$ImpLMet), na.rm = T)
     writeLines(text = sprintf('%s %s',
-                              'Mean | Median impacted segment length in meters: ',
+                              paste0('Mean | Median impacted segment length in ',units,': '),
                               paste0(as.character(round(m1,0)),
                                      '|',
                                      as.character(round(m2,0)))),
@@ -1499,6 +1499,11 @@ calculate_stream_depletions <- function(streams,
     require_package(required_packages[i])
   }
 
+  units <- st_crs(wells)$units_gdal
+  if(units == 'metre'){
+    units <- 'meter'
+  }
+  units <- paste0(units,'s')
   
   #-------------------------------------------------------------------------------
   # open log file to write program execution
