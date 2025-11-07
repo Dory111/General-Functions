@@ -11,7 +11,7 @@
 #   \  \::/     \  \:\      \  \:\       \__\/     /__/:/                \__\/      \  \::/     \  \:\         \__\/
 #    \__\/       \__\/       \__\/                 \__\/                             \__\/       \__\/              
 #   
-# 11/5/2025
+# 11/5/2025 - 11/7/2025
 calculate_stream_depletions <- function(streams,
                                         streams_are_points = FALSE,
                                         stream_id_key = NULL,
@@ -825,6 +825,248 @@ calculate_stream_depletions <- function(streams,
   
   
   
+  #===========================================================================================
+  # Apportion depletions by thiessen polygon method
+  # method taken from Zipper (2018) https://doi.org/10.1029/2018WR022707
+  #===========================================================================================
+  thiessen_polygon_apportionment <- function(wells,
+                                             closest_points_per_segment,
+                                             stream_points_geometry)
+  {
+    #-------------------------------------------------------------------------------
+    fractions_of_depletions <- list()
+    reaches <- list()
+    for(i in 1:nrow(wells)){
+      #-------------------------------------------------------------------------------
+      if(suppress_loading_bar == FALSE){
+        #-------------------------------------------------------------------------------
+        # user message
+        loading_bar(iter = i,
+                    total = nrow(wells),
+                    width = 50,
+                    optional_text = 'Apportioning Depletions')
+        #-------------------------------------------------------------------------------
+      }
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # find closest points on stream reaches for that well
+      closest_points_subset <- closest_points_per_segment[i, ]
+      rm <- which(is.na(closest_points_subset))
+      if(length(rm) > 0){
+        closest_points_subset <- as.vector(unlist(closest_points_subset[-c(which(is.na(closest_points_subset)))]))
+      } else {}
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # if there are closest points continue
+      if(length(closest_points_subset) > 0){
+        
+        #-------------------------------------------------------------------------------
+        # generate thiessen polygons out of the closest points
+        closest_stream_points <- stream_points_geometry[closest_points_subset, ]
+        closest_stream_points$key <- paste(st_coordinates(closest_stream_points)[ ,1],
+                                           st_coordinates(closest_stream_points)[ ,2],
+                                           sep = '_')
+        closest_stream_points <- closest_stream_points[ ,'key']
+        closest_stream_points <- unique(closest_stream_points)
+        closest_stream_points$BUFF <- rep(NA, nrow(closest_stream_points))
+        
+        closest_voronoi <- st_voronoi(st_union(st_geometry(closest_stream_points)))
+        closest_voronoi <- st_collection_extract(closest_voronoi,'POLYGON')
+        closest_voronoi <- st_sf(geometry = closest_voronoi, crs = st_crs(closest_voronoi))
+        closest_voronoi$key <- closest_stream_points$key
+        
+        closest_stream_points <- closest_stream_points[ ,'BUFF']
+        #-------------------------------------------------------------------------------
+        
+        
+        #-------------------------------------------------------------------------------
+        # generate thiessen polygons out of the closest points plus the well
+        wells_tmp <- wells[i, ]
+        wells_tmp$BUFF <- rep(NA,nrow(wells_tmp))
+        wells_tmp <- wells_tmp[ ,'BUFF']
+        closest_stream_points_plus_well <- rbind(wells_tmp, closest_stream_points)
+        
+        closest_voronoi_plus_well <- st_voronoi(st_union(st_geometry(closest_stream_points_plus_well)))
+        closest_voronoi_plus_well <- st_collection_extract(closest_voronoi_plus_well,'POLYGON')
+        closest_voronoi_plus_well <- st_sf(geometry = closest_voronoi_plus_well, crs = st_crs(closest_voronoi_plus_well))
+        #-------------------------------------------------------------------------------
+        
+        
+        #-------------------------------------------------------------------------------
+        # which thiessen polygon does the well intersect
+        wells_intersection <- st_intersects(closest_voronoi_plus_well, wells[i, ])
+        rm <- which(lengths(wells_intersection) == 0)
+        if(length(rm) > 0){
+          wells_intersection <- c(1:length(wells_intersection))[-c(rm)]
+        } else {}
+        wells_intersection <- closest_voronoi_plus_well[wells_intersection, ]
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # get areas
+        well_voronoi_area <- as.numeric(st_area(wells_intersection))
+        closest_voronoi_intersection <- st_intersection(closest_voronoi, st_geometry(wells_intersection))
+        voronoi_intersected_areas <- as.numeric(st_area(closest_voronoi_intersection))
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # find which intersections get what depletion fraction
+        apportioned_depletions <- voronoi_intersected_areas/well_voronoi_area
+        apportioned_depletions <- data.frame(dep = apportioned_depletions,
+                                             key = closest_voronoi_intersection$key)
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # get which voronoi polygons these depletions should be assigned to
+        surrounding_voronoi <- st_intersects(closest_voronoi, closest_voronoi_intersection)
+        rm <- which(lengths(surrounding_voronoi) == 0)
+        if(length(rm) > 0){
+          surrounding_voronoi <- c(1:length(surrounding_voronoi))[-c(rm)]
+        } else {}
+        surrounding_voronoi <- closest_voronoi[surrounding_voronoi, ]
+        #-------------------------------------------------------------------------------
+        
+        
+        #-------------------------------------------------------------------------------
+        # re-creating original points
+        closest_stream_points <- stream_points_geometry[closest_points_subset, ]
+        closest_stream_points$key <- paste(st_coordinates(closest_stream_points)[ ,1],
+                                           st_coordinates(closest_stream_points)[ ,2],
+                                           sep = '_')
+        closest_stream_points <- closest_stream_points[ ,'key']
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # in case more than one point got collapsed to a single voronoi polygon
+        depletions_accounting_duplicates <- lapply(apportioned_depletions$key, function(x){
+          length(which(closest_stream_points$key == x))
+        })
+        depletions_accounting_duplicates <- unlist(depletions_accounting_duplicates)
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # dividing depletions among duplicates (if exists)
+        apportioned_depletions$dep <- 
+          apportioned_depletions$dep/depletions_accounting_duplicates
+        apportioned_depletions$divisor <- depletions_accounting_duplicates
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # assigning depletions to points in the correct positions
+        frac <- lapply(closest_stream_points$key, function(x){
+          apportioned_depletions$dep[apportioned_depletions$key == x]
+        })
+        frac[lengths(frac) == 0] <- NA
+        frac <- unlist(frac)
+        closest_stream_points$frac <- frac
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # finding what reaches these depletions apply to
+        reach_names <- as.numeric(row.names(closest_stream_points)[(is.na(closest_stream_points$frac) == FALSE)])
+        
+        reach_names <- st_drop_geometry(stream_points_geometry[reach_names, stream_id_key])
+        reach_names <- as.vector(unlist(reach_names))
+        closest_stream_points$reach_name <- rep(NA, nrow(closest_stream_points))
+        closest_stream_points$reach_name[is.na(closest_stream_points$frac) == FALSE] <- reach_names
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # output
+        fractions_of_depletions[[i]] <- frac
+        reaches[[i]] <- as.vector(unlist(closest_stream_points$reach_name))
+        #-------------------------------------------------------------------------------
+      } else {
+        fractions_of_depletions[[i]] <- NA
+        reaches[[i]] <- NA
+      }
+      #-------------------------------------------------------------------------------
+    }
+    #-------------------------------------------------------------------------------
+    
+    
+    
+    #-------------------------------------------------------------------------------
+    # format writeout pt 1
+    max_frac_len <- max(lengths(fractions_of_depletions))
+    fractions_of_depletions <- lapply(fractions_of_depletions,
+                                      function(x) append(x,
+                                                         rep(NA,max_frac_len - length(x))))
+    reaches <- lapply(reaches,
+                      function(x) append(x,
+                                         rep(NA,max_frac_len - length(x))))
+    fractions_of_depletions <- do.call(rbind, fractions_of_depletions)
+    reaches <- do.call(rbind, reaches)
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # writeout statistics
+    max_dep <- max(fractions_of_depletions, na.rm = T)
+    wm <- which(fractions_of_depletions == max_dep, arr.ind = TRUE)
+    reach_max_dep <- reaches[wm]
+    well_max_dep <- unlist(as.vector(st_drop_geometry(wells[wm[1,1],wells_id_key])))
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    # format writeout pt 2
+    w_index <- as.vector(unlist(st_drop_geometry(wells[ ,wells_id_key])))
+    fractions_of_depletions <- cbind(w_index, fractions_of_depletions)
+    fractions_of_depletions <- as.data.frame(fractions_of_depletions)
+    colnames(fractions_of_depletions) <- c('wellN',
+                                           paste0('REff',
+                                                  1:(ncol(fractions_of_depletions)-1)))
+    reaches <- cbind(w_index, reaches)
+    reaches <- as.data.frame(reaches)
+    colnames(reaches) <- c('wellN',
+                           paste0('RN',
+                                  1:(ncol(reaches)-1)))
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    # write status to log
+    writeLines(text = sprintf('%s %s',
+                              'Max apportioned depletion fraction: ',
+                              paste(round(max_dep,4),
+                                    'for reach',
+                                    reach_max_dep,
+                                    'for well',
+                                    well_max_dep)),
+               con = log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    return(list(fractions_of_depletions,
+                reaches))
+    #-------------------------------------------------------------------------------
+  }
+  #-------------------------------------------------------------------------------
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   
   ############################################################################################
@@ -1195,6 +1437,18 @@ calculate_stream_depletions <- function(streams,
       
       output <- inverse_distance_apportionment(power = power,
                                                wells = wells,
+                                               closest_points_per_segment = closest_points_per_segment,
+                                               stream_points_geometry = stream_points_geometry)
+      
+    }
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    # Inverse distance apportionment
+    if(str_to_title(apportionment_criteria) %in% c('Thiessen Polygon')){
+
+      output <- thiessen_polygon_apportionment(wells = wells,
                                                closest_points_per_segment = closest_points_per_segment,
                                                stream_points_geometry = stream_points_geometry)
       
