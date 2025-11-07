@@ -598,7 +598,7 @@ calculate_stream_depletions <- function(streams,
         loading_bar(iter = i,
                     total = nrow(wells),
                     width = 50,
-                    optional_text = 'Closest Point by Reach')
+                    optional_text = 'Closest point by reach')
         #-------------------------------------------------------------------------------
       }
       #-------------------------------------------------------------------------------
@@ -718,7 +718,7 @@ calculate_stream_depletions <- function(streams,
         loading_bar(iter = i,
                     total = nrow(wells),
                     width = 50,
-                    optional_text = 'Apportioning Depletions')
+                    optional_text = 'Apportioning depletions')
         #-------------------------------------------------------------------------------
       }
       #-------------------------------------------------------------------------------
@@ -1621,7 +1621,7 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     # user message
     if(suppress_console_messages == FALSE){
-      cat('Apportioning Depletions Per Well: Step (2/3)')
+      cat('\nApportioning depletions per well: Step (2/3)')
     }
     #-------------------------------------------------------------------------------
     
