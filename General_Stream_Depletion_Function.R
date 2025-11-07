@@ -855,7 +855,11 @@ calculate_stream_depletions <- function(streams,
       rm <- which(is.na(closest_points_subset))
       if(length(rm) > 0){
         closest_points_subset <- as.vector(unlist(closest_points_subset[-c(which(is.na(closest_points_subset)))]))
-      } else {}
+        closest_points_subset <- closest_points_subset[-c(1)]
+      } else {
+        closest_points_subset <- as.vector(unlist(closest_points_subset))
+        closest_points_subset <- closest_points_subset[-c(1)]
+      }
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
