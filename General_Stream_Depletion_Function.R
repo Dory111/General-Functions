@@ -1483,7 +1483,7 @@ calculate_stream_depletions <- function(streams,
   
   
   
-  
+
 
   
   
@@ -1499,11 +1499,14 @@ calculate_stream_depletions <- function(streams,
     require_package(required_packages[i])
   }
 
-  units <- st_crs(wells)$units_gdal
-  if(units == 'metre'){
-    units <- 'meter'
+  units <- units(st_distance(wells[1, ], wells[1, ]))$numerator
+  if(units == 'm'){
+    units <- 'meters'
+  } else if (units == '°'){
+    units <- 'degrees'
+  } else if (units == 'US_survey_foot'){
+    units <- 'feet'
   }
-  units <- paste0(units,'s')
   
   #-------------------------------------------------------------------------------
   # open log file to write program execution
