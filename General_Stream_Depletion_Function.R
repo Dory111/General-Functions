@@ -22,7 +22,7 @@ calculate_stream_depletions <- function(streams,
                                         influence_radius = NULL,
                                         proximity_criteria = 'adjacent',
                                         apportionment_criteria = 'inverse distance',
-                                        stream_depletion_criteria = 'glover',
+                                        analytical_model = 'glover',
                                         stream_depletion_output = 'volumetric',
                                         data_out_dir = getwd(),
                                         diag_out_dir = getwd(),
@@ -1386,6 +1386,7 @@ calculate_stream_depletions <- function(streams,
       depletions_mat <- matrix(depletions_vec,
                                nrow = length(timesteps),
                                ncol = length(start_pumping))
+      depletions_mat <- depletions_mat[-c(1), ]
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
@@ -1416,7 +1417,7 @@ calculate_stream_depletions <- function(streams,
         loading_bar(iter = i,
                     total = ncol(closest_points_per_segment),
                     width = 50,
-                    optional_text = 'Calculating depletions')
+                    optional_text = '')
         #-------------------------------------------------------------------------------
       }
       #-------------------------------------------------------------------------------
@@ -1442,6 +1443,7 @@ calculate_stream_depletions <- function(streams,
         
         #-------------------------------------------------------------------------------
         depletions_per_well <- list()
+        pump_frac_per_well <- list()
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -1470,17 +1472,25 @@ calculate_stream_depletions <- function(streams,
           
           #-------------------------------------------------------------------------------
           depletions_per_well[[counter]] <- Q_final
+          pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
           #-------------------------------------------------------------------------------
         }
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
+        # fractional depletion method taken from Zipper 2019
+        # https://doi.org/10.1029/2018WR024403 eq 1
         depletions_total <- do.call(cbind, depletions_per_well)
-        depletions_per_reach[[i]] <- base::rowSums(depletions_total)
+        pump_frac_total <- do.call(cbind, pump_frac_per_well)
+        
+        if(str_to_title(stream_depletion_output) == 'Fractional'){
+          depletions_per_reach[[i]] <- base::rowSums(depletions_total)/base::rowSums(pump_frac_total)
+        } else {
+          depletions_per_reach[[i]] <- base::rowSums(depletions_total)
+        }
         #-------------------------------------------------------------------------------
       } else{
-        # +1 accounts for time 0
-        depletions_per_reach[[i]] <- rep(0, ncol(pumping)+1) # reach has no depletions
+        depletions_per_reach[[i]] <- rep(0, ncol(pumping)) # reach has no depletions
       }
       #-------------------------------------------------------------------------------
     }
@@ -1609,6 +1619,7 @@ calculate_stream_depletions <- function(streams,
                  con = log_file)
       #-------------------------------------------------------------------------------
       
+
       #-------------------------------------------------------------------------------
       # getting points from stream linestrings
       stream_points_list <- list()
@@ -1618,7 +1629,10 @@ calculate_stream_depletions <- function(streams,
         coords <- Extract_SF_Linestring_Vertices(streams$geometry[i])
         stream_points_list[[i]] <- cbind(coords[[2]],
                                          coords[[1]])
-        id_list[[i]] <- rep(i, length(coords[[1]]))
+
+        id_list[[i]] <- rep(st_drop_geometry(streams[i,stream_id_key]),
+                            length(coords[[1]]))
+        
         average_length[[i]] <- length(coords[[1]])
       }
       #-------------------------------------------------------------------------------
@@ -1636,8 +1650,9 @@ calculate_stream_depletions <- function(streams,
                                          coords = c('x','y'),
                                          na.fail = FALSE,
                                          crs = crs(streams))
-      stream_points_geometry$ID <- unlist(id_list)
-      stream_id_key <<- 'ID'
+      cnams <- colnames(stream_points_geometry)
+      stream_points_geometry <- cbind(unlist(id_list), stream_points_geometry)
+      colnames(stream_points_geometry) <- c(stream_id_key, cnams)
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
@@ -1671,75 +1686,6 @@ calculate_stream_depletions <- function(streams,
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
-    
-    
-    
-    #-------------------------------------------------------------------------------
-    # before proceeding to well calculations do I have the information I need?
-    if(str_to_title(proximity_criteria) %in% c('Adjacent','Adjacent+Expanding') &
-       is.null(subwatersheds) == TRUE){
-      #-------------------------------------------------------------------------------
-      writeLines(text = sprintf('%s',
-                                'Proximity criteria required subwatersheds but none supplied'),
-                 con = log_file)
-      writeLines(text = sprintf('%s',
-                                'Exiting program ...'),
-                 con = log_file)
-      close(log_file)
-      #-------------------------------------------------------------------------------
-      
-      
-      #-------------------------------------------------------------------------------
-      stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
-                  'proximity criteria required subwatersheds (Adjacent | Adjacent+Expanding)',
-                  'but none supplied',
-                  'exiting program ...'))
-      #-------------------------------------------------------------------------------
-    } else if (str_to_title(proximity_criteria) %in% c('Local Area',
-                                                       'Expanding',
-                                                       'Adjacent+Expanding') &
-               is.null(influence_radius) == TRUE){
-      #-------------------------------------------------------------------------------
-      writeLines(text = sprintf('%s',
-                                'Proximity criteria required influence radius but none supplied'),
-                 con = log_file)
-      writeLines(text = sprintf('%s',
-                                'Exiting program ...'),
-                 con = log_file)
-      close(log_file)
-      #-------------------------------------------------------------------------------
-      
-      
-      #-------------------------------------------------------------------------------
-      stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
-                  'proximity criteria required influence radius (Local Area | Expanding | Adjacent+Expanding)',
-                  'but none supplied',
-                  'exiting program ...'))
-      #-------------------------------------------------------------------------------
-    } else {}
-    
-    if(streams_are_points == TRUE &
-       is.null(stream_id_key) == TRUE){
-      #-------------------------------------------------------------------------------
-      writeLines(text = sprintf('%s',
-                                'Identifying column for streams required to calculate impacted length but none supplied'),
-                 con = log_file)
-      writeLines(text = sprintf('%s',
-                                'Exiting program ...'),
-                 con = log_file)
-      close(log_file)
-      #-------------------------------------------------------------------------------
-      
-      
-      #-------------------------------------------------------------------------------
-      stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
-                  'Identifying column for streams required to calculate impacted length',
-                  'but none supplied',
-                  'exiting program ...'))
-      #-------------------------------------------------------------------------------
-    }
-    #-------------------------------------------------------------------------------
-    
     
     
     
@@ -1994,7 +1940,7 @@ calculate_stream_depletions <- function(streams,
                                                    wells = wells,
                                                    transmissivity_key = transmissivity_key,
                                                    stor_coef_key = stor_coef_key,
-                                                   stream_depletion_criteria = stream_depletion_criteria,
+                                                   analytical_model = analytical_model,
                                                    stream_depletion_output = stream_depletion_output){
     #-------------------------------------------------------------------------------
     # write status to log
@@ -2004,8 +1950,13 @@ calculate_stream_depletions <- function(streams,
                con = log_file)
     
     writeLines(text = sprintf('%s %s',
-                              'Stream depletion criteria: ',
-                              str_to_title(stream_depletion_criteria)),
+                              'Using analytical model: ',
+                              str_to_title(analytical_model)),
+               con = log_file)
+    
+    writeLines(text = sprintf('%s %s',
+                              'And output format: ',
+                              str_to_title(stream_depletion_output)),
                con = log_file)
     #-------------------------------------------------------------------------------
     
@@ -2013,7 +1964,7 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # find what points are important for each well
-    if(str_to_title(stream_depletion_criteria) %in% c('Glover')){
+    if(str_to_title(analytical_model) %in% c('Glover')){
       output <- glover_stream_depletion_calculations(closest_points_per_segment = closest_points_per_segment,
                                                      reach_impact_frac = reach_impact_frac,
                                                      stream_points_geometry = stream_points_geometry,
@@ -2085,6 +2036,133 @@ calculate_stream_depletions <- function(streams,
   
   
   
+  ############################################################################################
+  # errors
+  #-------------------------------------------------------------------------------
+  # before proceeding to well calculations do I have the information I need?
+  if(str_to_title(proximity_criteria) %in% c('Adjacent','Adjacent+Expanding') &
+     is.null(subwatersheds) == TRUE){
+    #-------------------------------------------------------------------------------
+    writeLines(text = sprintf('%s',
+                              'Proximity criteria required subwatersheds but none supplied'),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'Exiting program ...'),
+               con = log_file)
+    close(log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
+                'proximity criteria required subwatersheds (Adjacent | Adjacent+Expanding)',
+                'but none supplied',
+                'exiting program ...'))
+    #-------------------------------------------------------------------------------
+  } else if (str_to_title(proximity_criteria) %in% c('Local Area',
+                                                     'Expanding',
+                                                     'Adjacent+Expanding') &
+             is.null(influence_radius) == TRUE){
+    #-------------------------------------------------------------------------------
+    writeLines(text = sprintf('%s',
+                              'Proximity criteria required influence radius but none supplied'),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'Exiting program ...'),
+               con = log_file)
+    close(log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
+                'proximity criteria required influence radius (Local Area | Expanding | Adjacent+Expanding)',
+                'but none supplied',
+                'exiting program ...'))
+    #-------------------------------------------------------------------------------
+  } else {}
+  
+  if(streams_are_points == TRUE &
+     is.null(stream_id_key) == TRUE){
+    #-------------------------------------------------------------------------------
+    writeLines(text = sprintf('%s',
+                              'Identifying column for streams required to calculate impacted length but none supplied'),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'Exiting program ...'),
+               con = log_file)
+    close(log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
+                'Identifying column for streams required to calculate impacted length',
+                'but none supplied',
+                'exiting program ...'))
+    #-------------------------------------------------------------------------------
+  }
+  
+  if(str_to_title(analytical_model) == 'Glover' &
+     (is.null(stor_coef_key) == TRUE |
+     !stor_coef_key %in% colnames(wells))){
+    #-------------------------------------------------------------------------------
+    writeLines(text = sprintf('%s',
+                              paste0('Identifying column for storage coefficient in ',
+                                     analycial_model,
+                                     ' model required but not present in well set')),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'Exiting program ...'),
+               con = log_file)
+    close(log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
+                'Identifying column for storage coefficient in ',
+                analycial_model,
+                ' model required but not present in well set',
+                'exiting program ...'))
+    #-------------------------------------------------------------------------------
+  }
+  
+  
+  
+  if(str_to_title(analytical_model) == 'Glover' &
+     (is.null(transmissivity_key) == TRUE |
+     !transmissivity_key %in% colnames(wells))){
+    #-------------------------------------------------------------------------------
+    writeLines(text = sprintf('%s',
+                              paste0('Identifying column for transmissivity in ',
+                                     analycial_model,
+                                     ' model required but not present in well set')),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'Exiting program ...'),
+               con = log_file)
+    close(log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
+                'Identifying column for transmissivity in ',
+                analycial_model,
+                ' model required but not present in well set',
+                'exiting program ...'))
+    #-------------------------------------------------------------------------------
+  }
+  #-------------------------------------------------------------------------------
+  
+  
+  
+  
+  
+  
+  
+  
   
   
   ############################################################################################
@@ -2107,6 +2185,11 @@ calculate_stream_depletions <- function(streams,
       wells$ID <- c(1:nrow(wells))
     } else {}
     
+    if(is.null(stream_id_key) == TRUE){
+      stream_id_key <- 'ID'
+      streams$ID <- c(1:nrow(streams))
+    } else {}
+    
     output <- find_impacted_stream_segments(streams,
                                             wells,
                                             subwatersheds,
@@ -2115,20 +2198,20 @@ calculate_stream_depletions <- function(streams,
     wells <- output[[2]]
     stream_points_geometry <- output[[3]]
     #-------------------------------------------------------------------------------
-    
+
     #-------------------------------------------------------------------------------
     # writeout
     write.csv(impacted_points,
               file.path(data_out_dir,
                         'impacted_stream_points_by_well.csv'),
               row.names = FALSE)
-    
+
     st_write(wells,
               file.path(data_out_dir,
                         'wells_with_impacted_length.shp'),
               append = FALSE,
               quiet = TRUE)
-    
+
     st_write(stream_points_geometry,
              file.path(data_out_dir,
                        'stream_points.shp'),
@@ -2221,7 +2304,9 @@ calculate_stream_depletions <- function(streams,
     
     if(str_to_title(apportionment_criteria) %in% c('Inverse Distance',
                                                    'Inverse Distance Squared',
-                                                   'Thiessen Polygon')){
+                                                   'Thiessen Polygon',
+                                                   'Web',
+                                                   'Web Squared')){
       write.csv(closest_points_per_segment,
                 file.path(data_out_dir,
                           'closest_points_per_reach_per_well.csv'),
@@ -2298,14 +2383,12 @@ calculate_stream_depletions <- function(streams,
     # a volumetric or fractional approach
     # fractional gives number between 0 and 1, where 1 is depletion is equal to
     # the pumping rate
-
-    #-------------------------------------------------------------------------------
     output <- calculate_stream_depletion_per_reach(closest_points_per_segment = closest_points_per_segment,
                                                    stream_points_geometry = stream_points_geometry,
                                                    wells = wells,
                                                    transmissivity_key = transmissivity_key,
                                                    stor_coef_key = stor_coef_key,
-                                                   stream_depletion_criteria = stream_depletion_criteria,
+                                                   analytical_model = analytical_model,
                                                    stream_depletion_output = stream_depletion_output)
     depletions_by_reach <- output
     #-------------------------------------------------------------------------------
@@ -2357,17 +2440,6 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
   })
   #-------------------------------------------------------------------------------
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
   
   
   
