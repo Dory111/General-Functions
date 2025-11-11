@@ -24,7 +24,9 @@ calculate_stream_depletions <- function(streams,
                                         data_out_dir = getwd(),
                                         diag_out_dir = getwd(),
                                         suppress_loading_bar = TRUE,
-                                        suppress_console_messages = TRUE)
+                                        suppress_console_messages = TRUE,
+                                        stor_coef_key = 'Stor',
+                                        transmissivity_key = 'Tr')
 {
 
   ############################################################################################
@@ -1230,6 +1232,151 @@ calculate_stream_depletions <- function(streams,
   
   
   
+  #===========================================================================================
+  # Calculates stream depletions assuming a fully penetrating stream with no
+  # clogging layer according to Glover and Balmer (1954) https://doi.org/10.1029/TR035i003p00468
+  #===========================================================================================
+  glover_stream_depletion_model <- function(stor_coef,
+                                            transmissivity,
+                                            distance,
+                                            QW)
+  {
+    #-------------------------------------------------------------------------------
+    # glover model equation in zipper (2019)
+    # https://doi.org/10.1029/2018WR024403
+    equation <- function(stor_coef,
+                         transmissivity,
+                         elapsed_time,
+                         distance)
+    {
+      QA <- erfc(sqrt((stor_coef * distance**2)/
+                        (4*transmissivity*elapsed_time)))
+      
+      
+      return(QA)
+    }
+    #-------------------------------------------------------------------------------
+    
+    
+    # EXPLANATION
+    # The following matrices are an abstraction of the principle of linear superposition.
+    # In these matrices, each column is a different pumping rate.
+    # This method is necessary as analytical stream depletion functions do not return
+    # the depletion at timestep t, but rather the cumulative depletion between 0 and t.
+    # Therefore the depletion at timestep t is actually f(t) - f(t-1).
+    
+    # The matrix [timestep_mat] shows, as stated, each column as a pumping rate and
+    # each row as the timesteps. This is the platonic ideal of if all pumping rates
+    # started at timestep 1. In this case to get the cumulative depletion at step 1
+    # we would just need to for each pumping rate evaluate f(1)*pump and sum them.
+    
+    # The matrices [starts_mat and stops_mat] represent for each pumping rate (column)
+    # when they start and stop. For example column 1 starts has each row set to 0 (starts)
+    # at time 0 in [start_mat]. These are less physical representations and more structures
+    # that allow us to assemble a physical representation.
+    
+    # The same is true of [pumping_mat], each column is filled with its representative pumping rate
+    # even if it is not active for that timestep
+    
+    # The matrix [starts_actual] assembles when each pumping rate actually starts,
+    # and for how long it has been active. For example columns 1 and 2 may look like
+    # 0 0
+    # 1 0
+    # 2 1
+    # 3 2
+    # ...
+    # showing that at row 4 pumping rate 1 has been active for 3 timesteps, and pumping
+    # rate 2 has been active for 2 timestep.
+    
+    # The matrix [stops_actual] assembles how much time we need to subtract from [starts_actual]
+    # to get the impulse at that timestep only. For example columns 1 and 2 may look like
+    # 0 0
+    # 0 0
+    # 1 0
+    # 2 1
+    # ...
+    # so to get the depletion in timestep 4 for column 1 we can use [starts_actual and stops_actual] to evaluate
+    # f(3) - f(2). Then for column 2 at timestep 4 we can evaluate f(2) - f(1). The sum of depletions at timestep
+    # 4 will then be the sum of these evaluations.
+    
+    
+    # FOR AN EXAMPLE RUN:
+    # THIS WILL BE THE SAME AS A CONTINUOUS PUMPING RATE
+    # timesteps = c(0,1,2,3,4)
+    # start_pumping = c(0,1,2,3)
+    # stop_pumping = c(1,2,3,4)
+    # pumping = c(10,10,10,10)
+    #-------------------------------------------------------------------------------
+    start_pumping <- c(0:(length(QW)-1))
+    stop_pumping <- c(1:length(QW))
+    timesteps <- c(0:length(QW)) 
+    
+    
+    timestep_mat <- base::matrix(timesteps,
+                                 nrow = length(timesteps),
+                                 ncol = length(start_pumping))
+    starts_mat <- base::matrix(start_pumping,
+                               nrow = length(timesteps),
+                               ncol = length(start_pumping),
+                               byrow = T)
+    stops_mat <- base::matrix(stop_pumping,
+                              nrow = length(timesteps),
+                              ncol = length(stop_pumping),
+                              byrow = T)
+    pumping_mat <- base::matrix(pumping,
+                                nrow = length(timesteps),
+                                ncol = length(pumping),
+                                byrow = T)
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # calculate time since each pumping interval starts/stops, bounded at 0
+    starts_actual <- timestep_mat - starts_mat
+    starts_actual[starts_actual < 0] <- 0
+    
+    stops_actual <- timestep_mat - stops_mat
+    stops_actual[stops_actual < 0] <- 0
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # vectorize for calculations
+    starts_actual_vec <- c(starts_actual)
+    stops_actual_vec <- c(stops_actual)
+    pumping_vec <- c(pumping_mat)
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # vector of zeroes that will be filled with the function evaluations
+    depletions_vec <- rep(0, length(starts_actual_vec))
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # evaulate f(t) - f(t-1)
+    depletions_vec[starts_actual_vec > 0] <-
+      pumping_vec[starts_actual_vec > 0] *
+      (equation(elapsed_time = starts_actual_vec[starts_actual_vec > 0],
+                distance = distance,
+                stor_coef = stor_coef,
+                transmissivity = transmissivity) -
+         equation(elapsed_time = stops_actual_vec[starts_actual_vec > 0],
+                  distance = distance,
+                  stor_coef = stor_coef,
+                  transmissivity = transmissivity))
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # return to matrix form for summation
+    depletions_mat <- matrix(depletions_vec,
+                             nrow = length(timesteps),
+                             ncol = length(start_pumping))
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # sum and return
+    return(base::rowSums(depletions_mat))
+    #-------------------------------------------------------------------------------
+  }
+  #-------------------------------------------------------------------------------
   
   
   
