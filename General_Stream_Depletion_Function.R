@@ -17,10 +17,13 @@ calculate_stream_depletions <- function(streams,
                                         stream_id_key = NULL,
                                         wells,
                                         wells_id_key = NULL,
+                                        pumping,
                                         subwatersheds = NULL,
                                         influence_radius = NULL,
                                         proximity_criteria = 'adjacent',
                                         apportionment_criteria = 'inverse distance',
+                                        stream_depletion_criteria = 'glover',
+                                        stream_depletion_output = 'volumetric',
                                         data_out_dir = getwd(),
                                         diag_out_dir = getwd(),
                                         suppress_loading_bar = TRUE,
@@ -1232,155 +1235,326 @@ calculate_stream_depletions <- function(streams,
   
   
   
+  
+  
+  
   #===========================================================================================
-  # Calculates stream depletions assuming a fully penetrating stream with no
-  # clogging layer according to Glover and Balmer (1954) https://doi.org/10.1029/TR035i003p00468
+  # Uses glover model to calculate the depletions per reach
   #===========================================================================================
-  glover_stream_depletion_model <- function(stor_coef,
-                                            transmissivity,
-                                            distance,
-                                            QW)
+  glover_stream_depletion_calculations <- function(closest_points_per_segment = closest_points_per_segment,
+                                                   stream_points_geometry = stream_points_geometry,
+                                                   reach_impact_frac = reach_impact_frac,
+                                                   wells = wells,
+                                                   transmissivity_key = transmissivity_key,
+                                                   stor_coef_key = stor_coef_key,
+                                                   stream_depletion_output = stream_depletion_output)
   {
-    #-------------------------------------------------------------------------------
-    # glover model equation in zipper (2019)
-    # https://doi.org/10.1029/2018WR024403
-    equation <- function(stor_coef,
-                         transmissivity,
-                         elapsed_time,
-                         distance)
+    #===========================================================================================
+    # Calculates stream depletions assuming a fully penetrating stream with no
+    # clogging layer according to Glover and Balmer (1954) https://doi.org/10.1029/TR035i003p00468
+    #===========================================================================================
+    glover_stream_depletion_model <- function(stor_coef,
+                                              transmissivity,
+                                              distance,
+                                              QW)
     {
-      QA <- erfc(sqrt((stor_coef * distance**2)/
-                        (4*transmissivity*elapsed_time)))
+      #-------------------------------------------------------------------------------
+      # glover model equation in zipper (2019)
+      # https://doi.org/10.1029/2018WR024403
+      equation <- function(stor_coef,
+                           transmissivity,
+                           elapsed_time,
+                           distance)
+      {
+        QA <- erfc(sqrt((stor_coef * distance**2)/
+                          (4*transmissivity*elapsed_time)))
+        
+        
+        return(QA)
+      }
+      #-------------------------------------------------------------------------------
       
       
-      return(QA)
+      # EXPLANATION
+      # The following matrices are an abstraction of the principle of linear superposition.
+      # In these matrices, each column is a different pumping rate.
+      # This method is necessary as analytical stream depletion functions do not return
+      # the depletion at timestep t, but rather the cumulative depletion between 0 and t.
+      # Therefore the depletion at timestep t is actually f(t) - f(t-1).
+      
+      # The matrix [timestep_mat] shows, as stated, each column as a pumping rate and
+      # each row as the timesteps. This is the platonic ideal of if all pumping rates
+      # started at timestep 1. In this case to get the cumulative depletion at step 1
+      # we would just need to for each pumping rate evaluate f(1)*pump and sum them.
+      
+      # The matrices [starts_mat and stops_mat] represent for each pumping rate (column)
+      # when they start and stop. For example column 1 starts has each row set to 0 (starts)
+      # at time 0 in [start_mat]. These are less physical representations and more structures
+      # that allow us to assemble a physical representation.
+      
+      # The same is true of [pumping_mat], each column is filled with its representative pumping rate
+      # even if it is not active for that timestep
+      
+      # The matrix [starts_actual] assembles when each pumping rate actually starts,
+      # and for how long it has been active. For example columns 1 and 2 may look like
+      # 0 0
+      # 1 0
+      # 2 1
+      # 3 2
+      # ...
+      # showing that at row 4 pumping rate 1 has been active for 3 timesteps, and pumping
+      # rate 2 has been active for 2 timestep.
+      
+      # The matrix [stops_actual] assembles how much time we need to subtract from [starts_actual]
+      # to get the impulse at that timestep only. For example columns 1 and 2 may look like
+      # 0 0
+      # 0 0
+      # 1 0
+      # 2 1
+      # ...
+      # so to get the depletion in timestep 4 for column 1 we can use [starts_actual and stops_actual] to evaluate
+      # f(3) - f(2). Then for column 2 at timestep 4 we can evaluate f(2) - f(1). The sum of depletions at timestep
+      # 4 will then be the sum of these evaluations.
+      
+      
+      # FOR AN EXAMPLE RUN:
+      # THIS WILL BE THE SAME AS A CONTINUOUS PUMPING RATE
+      # timesteps = c(0,1,2,3,4)
+      # start_pumping = c(0,1,2,3)
+      # stop_pumping = c(1,2,3,4)
+      # QW = c(10,10,10,10)
+      #-------------------------------------------------------------------------------
+      start_pumping <- c(0:(length(QW)-1))
+      stop_pumping <- c(1:length(QW))
+      timesteps <- c(0:length(QW)) 
+      
+      
+      timestep_mat <- base::matrix(timesteps,
+                                   nrow = length(timesteps),
+                                   ncol = length(start_pumping))
+      starts_mat <- base::matrix(start_pumping,
+                                 nrow = length(timesteps),
+                                 ncol = length(start_pumping),
+                                 byrow = T)
+      stops_mat <- base::matrix(stop_pumping,
+                                nrow = length(timesteps),
+                                ncol = length(stop_pumping),
+                                byrow = T)
+      pumping_mat <- base::matrix(QW,
+                                  nrow = length(timesteps),
+                                  ncol = length(QW),
+                                  byrow = T)
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # calculate time since each pumping interval starts/stops, bounded at 0
+      starts_actual <- timestep_mat - starts_mat
+      starts_actual[starts_actual < 0] <- 0
+      
+      stops_actual <- timestep_mat - stops_mat
+      stops_actual[stops_actual < 0] <- 0
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # vectorize for calculations
+      starts_actual_vec <- c(starts_actual)
+      stops_actual_vec <- c(stops_actual)
+      pumping_vec <- c(pumping_mat)
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # vector of zeroes that will be filled with the function evaluations
+      depletions_vec <- rep(0, length(starts_actual_vec))
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # evaulate f(t) - f(t-1)
+      depletions_vec[starts_actual_vec > 0] <-
+        pumping_vec[starts_actual_vec > 0] *
+        (equation(elapsed_time = starts_actual_vec[starts_actual_vec > 0],
+                  distance = distance,
+                  stor_coef = stor_coef,
+                  transmissivity = transmissivity) -
+           equation(elapsed_time = stops_actual_vec[starts_actual_vec > 0],
+                    distance = distance,
+                    stor_coef = stor_coef,
+                    transmissivity = transmissivity))
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # return to matrix form for summation
+      depletions_mat <- matrix(depletions_vec,
+                               nrow = length(timesteps),
+                               ncol = length(start_pumping))
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # sum and return
+      return(base::rowSums(depletions_mat))
+      #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
     
     
-    # EXPLANATION
-    # The following matrices are an abstraction of the principle of linear superposition.
-    # In these matrices, each column is a different pumping rate.
-    # This method is necessary as analytical stream depletion functions do not return
-    # the depletion at timestep t, but rather the cumulative depletion between 0 and t.
-    # Therefore the depletion at timestep t is actually f(t) - f(t-1).
-    
-    # The matrix [timestep_mat] shows, as stated, each column as a pumping rate and
-    # each row as the timesteps. This is the platonic ideal of if all pumping rates
-    # started at timestep 1. In this case to get the cumulative depletion at step 1
-    # we would just need to for each pumping rate evaluate f(1)*pump and sum them.
-    
-    # The matrices [starts_mat and stops_mat] represent for each pumping rate (column)
-    # when they start and stop. For example column 1 starts has each row set to 0 (starts)
-    # at time 0 in [start_mat]. These are less physical representations and more structures
-    # that allow us to assemble a physical representation.
-    
-    # The same is true of [pumping_mat], each column is filled with its representative pumping rate
-    # even if it is not active for that timestep
-    
-    # The matrix [starts_actual] assembles when each pumping rate actually starts,
-    # and for how long it has been active. For example columns 1 and 2 may look like
-    # 0 0
-    # 1 0
-    # 2 1
-    # 3 2
-    # ...
-    # showing that at row 4 pumping rate 1 has been active for 3 timesteps, and pumping
-    # rate 2 has been active for 2 timestep.
-    
-    # The matrix [stops_actual] assembles how much time we need to subtract from [starts_actual]
-    # to get the impulse at that timestep only. For example columns 1 and 2 may look like
-    # 0 0
-    # 0 0
-    # 1 0
-    # 2 1
-    # ...
-    # so to get the depletion in timestep 4 for column 1 we can use [starts_actual and stops_actual] to evaluate
-    # f(3) - f(2). Then for column 2 at timestep 4 we can evaluate f(2) - f(1). The sum of depletions at timestep
-    # 4 will then be the sum of these evaluations.
     
     
-    # FOR AN EXAMPLE RUN:
-    # THIS WILL BE THE SAME AS A CONTINUOUS PUMPING RATE
-    # timesteps = c(0,1,2,3,4)
-    # start_pumping = c(0,1,2,3)
-    # stop_pumping = c(1,2,3,4)
-    # pumping = c(10,10,10,10)
-    #-------------------------------------------------------------------------------
-    start_pumping <- c(0:(length(QW)-1))
-    stop_pumping <- c(1:length(QW))
-    timesteps <- c(0:length(QW)) 
     
     
-    timestep_mat <- base::matrix(timesteps,
-                                 nrow = length(timesteps),
-                                 ncol = length(start_pumping))
-    starts_mat <- base::matrix(start_pumping,
-                               nrow = length(timesteps),
-                               ncol = length(start_pumping),
-                               byrow = T)
-    stops_mat <- base::matrix(stop_pumping,
-                              nrow = length(timesteps),
-                              ncol = length(stop_pumping),
-                              byrow = T)
-    pumping_mat <- base::matrix(pumping,
-                                nrow = length(timesteps),
-                                ncol = length(pumping),
-                                byrow = T)
-    #-------------------------------------------------------------------------------
+    
+    
+    
+    
     
     #-------------------------------------------------------------------------------
-    # calculate time since each pumping interval starts/stops, bounded at 0
-    starts_actual <- timestep_mat - starts_mat
-    starts_actual[starts_actual < 0] <- 0
-    
-    stops_actual <- timestep_mat - stops_mat
-    stops_actual[stops_actual < 0] <- 0
+    # for each reach calculate sum of all depletions
+    depletions_per_reach <- list()
+    for(i in 1:ncol(closest_points_per_segment)){
+      #-------------------------------------------------------------------------------
+      if(suppress_loading_bar == FALSE){
+        #-------------------------------------------------------------------------------
+        # user message
+        loading_bar(iter = i,
+                    total = ncol(closest_points_per_segment),
+                    width = 50,
+                    optional_text = 'Calculating depletions')
+        #-------------------------------------------------------------------------------
+      }
+      #-------------------------------------------------------------------------------
+      
+      
+      #-------------------------------------------------------------------------------
+      # what are the closest points to each well
+      points <- as.vector(unlist(closest_points_per_segment[, i]))
+      fracs <- as.vector(unlist(reach_impact_frac[ , i]))
+      well_indices <- c(1:length(points))
+      rm <- which(is.na(points))
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # if no wells are associated with the reach then pass
+      if(all(is.na(points) == TRUE) == FALSE){
+        #-------------------------------------------------------------------------------
+        # remove any non-relevant wells from the for loop
+        if(length(rm) > 0){
+          well_indices <- well_indices[-c(rm)]
+        } else {}
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        depletions_per_well <- list()
+        counter <- 0
+        for(j in well_indices){
+          #-------------------------------------------------------------------------------
+          # increment list counter
+          counter <- counter + 1
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          # get necessary information
+          distance <- st_distance(wells[j, ],
+                                  stream_points_geometry[points[j], ])
+          distance <- as.numeric(distance)
+          transmissivity <- as.numeric(st_drop_geometry(wells[j,transmissivity_key]))
+          stor_coef <- as.numeric(st_drop_geometry(wells[j, stor_coef_key]))
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          # calculate maximum stream depletion potential and
+          # multiply by fraction of depletions of this well apportioned to this reach
+          Q_out <- glover_stream_depletion_model(stor_coef = stor_coef,
+                                                 transmissivity = transmissivity,
+                                                 distance = distance,
+                                                 QW = pumping[j, ])
+          Q_final <- Q_out*fracs[j]
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          depletions_per_well[[counter]] <- Q_final
+          #-------------------------------------------------------------------------------
+        }
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        depletions_total <- do.call(cbind, depletions_per_well)
+        depletions_per_reach[[i]] <- base::rowSums(depletions_total)
+        #-------------------------------------------------------------------------------
+      } else{
+        # +1 accounts for time 0
+        depletions_per_reach[[i]] <- rep(0, ncol(pumping)+1) # reach has no depletions
+      }
+      #-------------------------------------------------------------------------------
+    }
     #-------------------------------------------------------------------------------
     
-    #-------------------------------------------------------------------------------
-    # vectorize for calculations
-    starts_actual_vec <- c(starts_actual)
-    stops_actual_vec <- c(stops_actual)
-    pumping_vec <- c(pumping_mat)
-    #-------------------------------------------------------------------------------
+    
+    
     
     #-------------------------------------------------------------------------------
-    # vector of zeroes that will be filled with the function evaluations
-    depletions_vec <- rep(0, length(starts_actual_vec))
+    # stats
+    start_of_depletions <- lapply(depletions_per_reach, function(x){
+      rle(x)$lengths[1]
+    })
+    start_of_depletions <- unlist(start_of_depletions)
+    rm <- which(start_of_depletions == ncol(pumping))
+    if(length(rm) > 0){
+      start_of_depletions[-c(rm)] # if never started remove
+    } else {}
+    
+    
+    
+    mean_start_of_depletions <- mean(start_of_depletions, na.rm = TRUE)
+    median_start_of_depletions <- median(start_of_depletions, na.rm = TRUE)
+    
+    final_depletions <- lapply(depletions_per_reach, function(x){
+      tail(x, 1)
+    })
+    n_timesteps <- ncol(pumping)
+    mean_final_depletions <- mean(unlist(final_depletions), na.rm = TRUE)
+    median_final_depletions <- median(unlist(final_depletions), na.rm = TRUE)
+    which_max_final_depletions <- which.max(unlist(final_depletions))
+    max_final_depletions <- max(unlist(final_depletions), na.rm = TRUE)
     #-------------------------------------------------------------------------------
+
+    
     
     #-------------------------------------------------------------------------------
-    # evaulate f(t) - f(t-1)
-    depletions_vec[starts_actual_vec > 0] <-
-      pumping_vec[starts_actual_vec > 0] *
-      (equation(elapsed_time = starts_actual_vec[starts_actual_vec > 0],
-                distance = distance,
-                stor_coef = stor_coef,
-                transmissivity = transmissivity) -
-         equation(elapsed_time = stops_actual_vec[starts_actual_vec > 0],
-                  distance = distance,
-                  stor_coef = stor_coef,
-                  transmissivity = transmissivity))
+    # write status to log
+    writeLines(text = sprintf('%s %s',
+                              'Mean | Median start of stream depletions (timestep): ',
+                              paste(round(mean_start_of_depletions,2),
+                                    ' | ',
+                                    median_start_of_depletions)),
+               con = log_file)
+    
+    
+    writeLines(text = sprintf('%s %s',
+                              paste('Mean | Median final depletions','(',units,'^3','):'),
+                              paste(round(mean_final_depletions,4),
+                                    '|',
+                                    round(median_final_depletions,4),
+                                    'at timestep (t_final)',
+                                    n_timesteps)),
+               con = log_file)
+    
+    writeLines(text = sprintf('%s %s',
+                              paste('Max final depletions','(',units,'^3','):'),
+                              paste(round(max_final_depletions,4),
+                                    'at timestep (t_final)',
+                                    n_timesteps,
+                                    'for reach',
+                                    which_max_final_depletions)),
+               con = log_file)
     #-------------------------------------------------------------------------------
     
-    #-------------------------------------------------------------------------------
-    # return to matrix form for summation
-    depletions_mat <- matrix(depletions_vec,
-                             nrow = length(timesteps),
-                             ncol = length(start_pumping))
-    #-------------------------------------------------------------------------------
+    
     
     #-------------------------------------------------------------------------------
-    # sum and return
-    return(base::rowSums(depletions_mat))
+    # output
+    depletions_per_reach <- do.call(rbind, depletions_per_reach)
+    return(depletions_per_reach)
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
-  
-  
-  
-  
   
   
   
@@ -1497,20 +1671,6 @@ calculate_stream_depletions <- function(streams,
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
-    
-    
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     
     
@@ -1826,6 +1986,65 @@ calculate_stream_depletions <- function(streams,
   
   
   
+  #===========================================================================================
+  # Apportions depletions based on given criteria
+  #===========================================================================================
+  calculate_stream_depletion_per_reach <- function(closest_points_per_segment = closest_points_per_segment,
+                                                   stream_points_geometry = stream_points_geometry,
+                                                   wells = wells,
+                                                   transmissivity_key = transmissivity_key,
+                                                   stor_coef_key = stor_coef_key,
+                                                   stream_depletion_criteria = stream_depletion_criteria,
+                                                   stream_depletion_output = stream_depletion_output){
+    #-------------------------------------------------------------------------------
+    # write status to log
+    writeLines(text = sprintf('%s %s',
+                              '####',
+                              'Calculating Depletions For Each Well'),
+               con = log_file)
+    
+    writeLines(text = sprintf('%s %s',
+                              'Stream depletion criteria: ',
+                              str_to_title(stream_depletion_criteria)),
+               con = log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    
+    #-------------------------------------------------------------------------------
+    # find what points are important for each well
+    if(str_to_title(stream_depletion_criteria) %in% c('Glover')){
+      output <- glover_stream_depletion_calculations(closest_points_per_segment = closest_points_per_segment,
+                                                     reach_impact_frac = reach_impact_frac,
+                                                     stream_points_geometry = stream_points_geometry,
+                                                     wells = wells,
+                                                     transmissivity_key = transmissivity_key,
+                                                     stor_coef_key = stor_coef_key,
+                                                     stream_depletion_output = stream_depletion_output)
+      output <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
+                      output)
+      output <- as.data.frame(output)
+      colnames(output) <- c('RN', paste0('T',1:(ncol(output)-1)))
+
+    } else {}
+    #-------------------------------------------------------------------------------
+    
+    
+    
+    #-------------------------------------------------------------------------------
+    # log message
+    writeLines(text = sprintf('%s',
+                              'Calculated depletions without error'),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'Finished ...'),
+               con = log_file)
+    #-------------------------------------------------------------------------------
+    
+    return(output)
+  }
+  #-------------------------------------------------------------------------------
+  
   
   
 
@@ -1986,7 +2205,7 @@ calculate_stream_depletions <- function(streams,
     reach_impact_frac <- output[[1]]
     impacted_reaches <- output[[2]]
     closest_points_per_segment <- output[[3]]
-    
+    #-------------------------------------------------------------------------------
     
     #-------------------------------------------------------------------------------
     # writeout
@@ -2009,7 +2228,11 @@ calculate_stream_depletions <- function(streams,
                 row.names = FALSE)
     }
     #-------------------------------------------------------------------------------
-
+    
+    reach_impact_frac <- reach_impact_frac[,-c(1)]
+    impacted_reaches <- impacted_reaches[,-c(1)]
+    closest_points_per_segment <- closest_points_per_segment[,-c(1)]
+    
     #-------------------------------------------------------------------------------
     # save space
     rm(output)
@@ -2048,6 +2271,103 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
   })
   #-------------------------------------------------------------------------------
+  
+  
+  
+
+  
+  
+  
+  
+  
+  ############################################################################################
+  # run calculate depletions
+  
+  #-------------------------------------------------------------------------------
+  # capture any error output and write to log file
+  tryCatch(expr = {
+    #-------------------------------------------------------------------------------
+    # user message
+    if(suppress_console_messages == FALSE){
+      cat('\nCalculating depletions per well: Step (3/3)')
+    }
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # calculate streamflow depletions based on either
+    # a volumetric or fractional approach
+    # fractional gives number between 0 and 1, where 1 is depletion is equal to
+    # the pumping rate
+
+    #-------------------------------------------------------------------------------
+    output <- calculate_stream_depletion_per_reach(closest_points_per_segment = closest_points_per_segment,
+                                                   stream_points_geometry = stream_points_geometry,
+                                                   wells = wells,
+                                                   transmissivity_key = transmissivity_key,
+                                                   stor_coef_key = stor_coef_key,
+                                                   stream_depletion_criteria = stream_depletion_criteria,
+                                                   stream_depletion_output = stream_depletion_output)
+    depletions_by_reach <- output
+    #-------------------------------------------------------------------------------
+
+    
+    #-------------------------------------------------------------------------------
+    write.csv(depletions_by_reach,
+              file.path(data_out_dir,
+                        paste0(stream_depletion_output,'_depletions_by_reach.csv')),
+              row.names = FALSE)
+    #-------------------------------------------------------------------------------
+
+    
+    #-------------------------------------------------------------------------------
+    # save space
+    rm(output)
+    #-------------------------------------------------------------------------------
+  }, error = function(e){
+    #-------------------------------------------------------------------------------
+    # write error to log file
+    status <- 'calculate_depletions'
+    writeLines(text = sprintf('%s %s',
+                              'ENCOUNTERED ERROR: ',
+                              class(e)[1]),
+               con = log_file)
+    writeLines(text = sprintf('%s %s',
+                              'ON COMMAND: ',
+                              paste0(capture.output(e$call),collapse = ' ')),
+               con = log_file)
+    writeLines(text = sprintf('%s %s',
+                              'FOR REASON: ',
+                              paste0(e$message, collapse = ' ')),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'exiting program...'),
+               con = log_file)
+    close(log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    # write error to console
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ', class(e)[1],'\n',
+                'during:    ', status,'\n',
+                'on command:    ', paste0(capture.output(e$call),collapse = ' '),'\n',
+                'for reason:    ', paste0(e$message, collapse = ' '),'\n',
+                'for more information see the log.txt file output\n',
+                'exiting program ...'))
+    #-------------------------------------------------------------------------------
+  })
+  #-------------------------------------------------------------------------------
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   
   
