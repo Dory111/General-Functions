@@ -105,6 +105,15 @@ calculate_stream_depletions <- function(streams,
   #-------------------------------------------------------------------------------
   
   
+  #===========================================================================================
+  # complimentary error function
+  #===========================================================================================
+  erfc <- function(x)
+  {
+    p <- 2 * pnorm(x * sqrt(2), lower.tail = FALSE)
+    return(p)
+  }
+  #-------------------------------------------------------------------------------
   
   
   #===========================================================================================
@@ -586,10 +595,17 @@ calculate_stream_depletions <- function(streams,
                con = log_file)
     #-------------------------------------------------------------------------------
     
+    #-------------------------------------------------------------------------------
+    # blank data to be filled
+    blank_matrix <- base::matrix(nrow = nrow(wells),
+                                 ncol = nrow(streams))
+    blank_matrix <- as.data.frame(blank_matrix)
+    colnames(blank_matrix) <- c(1:ncol(blank_matrix))
+    #-------------------------------------------------------------------------------
     
     #-------------------------------------------------------------------------------
     # get the closest point on each stream segment associated with each well
-    closest_points_per_segment <- list()
+    stats <- list()
     for(i in 1:nrow(wells)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -613,7 +629,8 @@ calculate_stream_depletions <- function(streams,
       # additionally, trying to index the stream points data frame by a NA, or numeric(0)
       # would cause an error
       if(all(is.na(imp_pts)) == TRUE){
-        closest_points_per_segment[[i]] <- NA
+        # pass
+        stats[[i]] <- NA
       } else {
         rm_NA_index <- which(is.na(imp_pts) == TRUE)
         if(length(rm_NA_index) > 0){
@@ -634,11 +651,12 @@ calculate_stream_depletions <- function(streams,
                                    closest_index <- rownames[which.min(st_distance(wells[i, ], x))]
                                    as.numeric(closest_index)
                                  })
+        stats[[i]] <- as.vector(unlist(closest_points))
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
-        # record the indices of the closest points to each well
-        closest_points_per_segment[[i]] <- unlist(closest_points)
+        blank_matrix[i, as.numeric(colnames(blank_matrix)) %in% as.numeric(names(closest_points))] <- 
+          closest_points
         #-------------------------------------------------------------------------------
       }
       #-------------------------------------------------------------------------------
@@ -646,13 +664,9 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     
     #-------------------------------------------------------------------------------
-    max_closest_n <- max(lengths(closest_points_per_segment))
-    mean_closest_n <- round(mean(lengths(closest_points_per_segment)),0)
-    median_closest_n <- round(median(lengths(closest_points_per_segment)),0)
-    closest_points_per_segment <- lapply(closest_points_per_segment,
-                                         function(x) append(x,
-                                                            rep(NA,max_closest_n - length(x))))
-    closest_points_per_segment <- do.call(rbind, closest_points_per_segment)
+    max_closest_n <- max(lengths(stats))
+    mean_closest_n <- round(mean(lengths(stats)),0)
+    median_closest_n <- round(median(lengths(stats)),0)
     #-------------------------------------------------------------------------------
 
     #-------------------------------------------------------------------------------
@@ -667,7 +681,7 @@ calculate_stream_depletions <- function(streams,
                con = log_file)
     #-------------------------------------------------------------------------------
     
-    return(closest_points_per_segment)
+    return(blank_matrix)
   }
   #-------------------------------------------------------------------------------
   
@@ -708,8 +722,12 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # use inverse distance weighting to assign fractions of depletions
-    fractions_of_depletions <- list()
-    reaches <- list()
+    fractions_of_depletions <- as.data.frame(base::matrix(nrow = nrow(wells),
+                                                          ncol = nrow(streams)))
+    colnames(fractions_of_depletions) <- c(1:ncol(fractions_of_depletions))
+    reaches <- as.data.frame(base::matrix(nrow = nrow(wells),
+                                          ncol = nrow(streams)))
+    colnames(reaches) <- c(1:ncol(reaches))
     for(i in 1:nrow(wells)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -724,7 +742,8 @@ calculate_stream_depletions <- function(streams,
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
-      closest_points_per_well <- closest_points_per_segment[i, ]
+      closest_points_per_well <- closest_points_per_segment[i,-c(1)]
+      reference <- as.vector(unlist(closest_points_per_well))
       closest_points_per_well <- as.vector(unlist(closest_points_per_well))
       #-------------------------------------------------------------------------------
       
@@ -750,33 +769,19 @@ calculate_stream_depletions <- function(streams,
                            power = power,
                            closest_points_per_well = closest_points_per_well,
                            stream_points_geometry = stream_points_geometry)
-        fractions_of_depletions[[i]] <- output[[1]]
-        reaches[[i]] <- output[[2]]
+        fractions_of_depletions[i,
+                                is.na(reference) == FALSE] <- output[[1]]
+        reaches[i,
+                is.na(reference) == FALSE] <- output[[2]]
         #-------------------------------------------------------------------------------
         
       } else {
-        
-        reaches[[i]] <- NA
-        fractions_of_depletions[[i]] <- NA
-        
+        # pass
       }
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
-    
-    
-    #-------------------------------------------------------------------------------
-    # format writeout pt 1
-    max_frac_len <- max(lengths(fractions_of_depletions))
-    fractions_of_depletions <- lapply(fractions_of_depletions,
-                                      function(x) append(x,
-                                                         rep(NA,max_frac_len - length(x))))
-    reaches <- lapply(reaches,
-                      function(x) append(x,
-                                         rep(NA,max_frac_len - length(x))))
-    fractions_of_depletions <- do.call(rbind, fractions_of_depletions)
-    reaches <- do.call(rbind, reaches)
-    #-------------------------------------------------------------------------------
+  
     
     #-------------------------------------------------------------------------------
     # writeout statistics
@@ -793,7 +798,7 @@ calculate_stream_depletions <- function(streams,
     fractions_of_depletions <- cbind(w_index, fractions_of_depletions)
     fractions_of_depletions <- as.data.frame(fractions_of_depletions)
     colnames(fractions_of_depletions) <- c('wellN',
-                                           paste0('REff',
+                                           paste0('RN',
                                                   1:(ncol(fractions_of_depletions)-1)))
     reaches <- cbind(w_index, reaches)
     reaches <- as.data.frame(reaches)
@@ -834,8 +839,12 @@ calculate_stream_depletions <- function(streams,
                                              stream_points_geometry)
   {
     #-------------------------------------------------------------------------------
-    fractions_of_depletions <- list()
-    reaches <- list()
+    fractions_of_depletions <- as.data.frame(base::matrix(nrow = nrow(wells),
+                                                          ncol = nrow(streams)))
+    colnames(fractions_of_depletions) <- c(1:ncol(fractions_of_depletions))
+    reaches <- as.data.frame(base::matrix(nrow = nrow(wells),
+                                          ncol = nrow(streams)))
+    colnames(reaches) <- c(1:ncol(reaches))
     for(i in 1:nrow(wells)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -851,14 +860,14 @@ calculate_stream_depletions <- function(streams,
       
       #-------------------------------------------------------------------------------
       # find closest points on stream reaches for that well
-      closest_points_subset <- closest_points_per_segment[i, ]
+      closest_points_subset <- closest_points_per_segment[i,-c(1)]
       rm <- which(is.na(closest_points_subset))
       if(length(rm) > 0){
+        reference <- closest_points_subset
         closest_points_subset <- as.vector(unlist(closest_points_subset[-c(which(is.na(closest_points_subset)))]))
-        closest_points_subset <- closest_points_subset[-c(1)]
       } else {
+        reference <- closest_points_subset
         closest_points_subset <- as.vector(unlist(closest_points_subset))
-        closest_points_subset <- closest_points_subset[-c(1)]
       }
       #-------------------------------------------------------------------------------
       
@@ -979,31 +988,20 @@ calculate_stream_depletions <- function(streams,
         
         #-------------------------------------------------------------------------------
         # output
-        fractions_of_depletions[[i]] <- frac
-        reaches[[i]] <- as.vector(unlist(closest_stream_points$reach_name))
+        fractions_of_depletions[i,
+                                as.numeric(colnames(fractions_of_depletions)) %in% as.numeric(reach_names)] <-
+          frac[is.na(frac) == FALSE]
+        reaches[i, as.numeric(colnames(reaches)) %in% as.numeric(reach_names)] <-
+          as.vector(reach_names)
         #-------------------------------------------------------------------------------
       } else {
-        fractions_of_depletions[[i]] <- NA
-        reaches[[i]] <- NA
+        # pass
       }
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
     
     
-    
-    #-------------------------------------------------------------------------------
-    # format writeout pt 1
-    max_frac_len <- max(lengths(fractions_of_depletions))
-    fractions_of_depletions <- lapply(fractions_of_depletions,
-                                      function(x) append(x,
-                                                         rep(NA,max_frac_len - length(x))))
-    reaches <- lapply(reaches,
-                      function(x) append(x,
-                                         rep(NA,max_frac_len - length(x))))
-    fractions_of_depletions <- do.call(rbind, fractions_of_depletions)
-    reaches <- do.call(rbind, reaches)
-    #-------------------------------------------------------------------------------
     
     #-------------------------------------------------------------------------------
     # writeout statistics
@@ -1020,7 +1018,7 @@ calculate_stream_depletions <- function(streams,
     fractions_of_depletions <- cbind(w_index, fractions_of_depletions)
     fractions_of_depletions <- as.data.frame(fractions_of_depletions)
     colnames(fractions_of_depletions) <- c('wellN',
-                                           paste0('REff',
+                                           paste0('RN',
                                                   1:(ncol(fractions_of_depletions)-1)))
     reaches <- cbind(w_index, reaches)
     reaches <- as.data.frame(reaches)
@@ -1124,8 +1122,12 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # use inverse distance weighting to assign fractions of depletions
-    fractions_of_depletions <- list()
-    reaches <- list()
+    fractions_of_depletions <- as.data.frame(base::matrix(nrow = nrow(wells),
+                                                          ncol = nrow(streams)))
+    colnames(fractions_of_depletions) <- c(1:ncol(fractions_of_depletions))
+    reaches <- as.data.frame(base::matrix(nrow = nrow(wells),
+                                          ncol = nrow(streams)))
+    colnames(reaches) <- c(1:ncol(reaches))
     for(i in 1:nrow(wells)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -1140,7 +1142,8 @@ calculate_stream_depletions <- function(streams,
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
-      closest_points_per_well <- closest_points_per_segment[i, ]
+      closest_points_per_well <- closest_points_per_segment[i,-c(1)]
+      reference <- as.vector(unlist(closest_points_per_well))
       closest_points_per_well <- as.vector(unlist(closest_points_per_well))
       #-------------------------------------------------------------------------------
       
@@ -1166,33 +1169,19 @@ calculate_stream_depletions <- function(streams,
                            power = power,
                            closest_points_per_well = closest_points_per_well,
                            stream_points_geometry = stream_points_geometry)
-        fractions_of_depletions[[i]] <- output[[1]]
-        reaches[[i]] <- output[[2]]
+        fractions_of_depletions[i,
+                                is.na(reference) == FALSE] <- output[[1]]
+        reaches[i,
+                is.na(reference) == FALSE] <- output[[2]]
         #-------------------------------------------------------------------------------
         
       } else {
-        
-        reaches[[i]] <- NA
-        fractions_of_depletions[[i]] <- NA
-        
+        # pass
       }
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
     
-    
-    #-------------------------------------------------------------------------------
-    # format writeout pt 1
-    max_frac_len <- max(lengths(fractions_of_depletions))
-    fractions_of_depletions <- lapply(fractions_of_depletions,
-                                      function(x) append(x,
-                                                         rep(NA,max_frac_len - length(x))))
-    reaches <- lapply(reaches,
-                      function(x) append(x,
-                                         rep(NA,max_frac_len - length(x))))
-    fractions_of_depletions <- do.call(rbind, fractions_of_depletions)
-    reaches <- do.call(rbind, reaches)
-    #-------------------------------------------------------------------------------
     
     #-------------------------------------------------------------------------------
     # writeout statistics
@@ -1209,7 +1198,7 @@ calculate_stream_depletions <- function(streams,
     fractions_of_depletions <- cbind(w_index, fractions_of_depletions)
     fractions_of_depletions <- as.data.frame(fractions_of_depletions)
     colnames(fractions_of_depletions) <- c('wellN',
-                                           paste0('REff',
+                                           paste0('RN',
                                                   1:(ncol(fractions_of_depletions)-1)))
     reaches <- cbind(w_index, reaches)
     reaches <- as.data.frame(reaches)
@@ -1568,7 +1557,8 @@ calculate_stream_depletions <- function(streams,
   }
   #-------------------------------------------------------------------------------
   
-
+  
+  
   
   #===========================================================================================
   # Apportions depletions based on given criteria
@@ -1626,16 +1616,16 @@ calculate_stream_depletions <- function(streams,
       } else {
         power <- 1
       }
-      
+
       output <- inverse_distance_apportionment(power = power,
                                                wells = wells,
                                                closest_points_per_segment = closest_points_per_segment,
                                                stream_points_geometry = stream_points_geometry)
-      
+
     }
     #-------------------------------------------------------------------------------
-    
-    
+
+
     #-------------------------------------------------------------------------------
     # Inverse distance apportionment
     if(str_to_title(apportionment_criteria) %in% c('Thiessen Polygon')){
@@ -1643,12 +1633,12 @@ calculate_stream_depletions <- function(streams,
       output <- thiessen_polygon_apportionment(wells = wells,
                                                closest_points_per_segment = closest_points_per_segment,
                                                stream_points_geometry = stream_points_geometry)
-      
+
     }
     #-------------------------------------------------------------------------------
-    
-    
-    
+
+
+
     #-------------------------------------------------------------------------------
     # Inverse distance apportionment
     if(str_to_title(apportionment_criteria) %in% c('Web',
@@ -1658,12 +1648,12 @@ calculate_stream_depletions <- function(streams,
       } else {
         power <- 1
       }
-      
+
       output <- web_apportionment(power = power,
                                   wells = wells,
                                   closest_points_per_segment = closest_points_per_segment,
                                   stream_points_geometry = stream_points_geometry)
-      
+
     }
     #-------------------------------------------------------------------------------
     
@@ -1757,7 +1747,6 @@ calculate_stream_depletions <- function(streams,
                                             proximity_criteria)
     impacted_points <- output[[1]]
     wells <- output[[2]]
-    
     stream_points_geometry <- output[[3]]
     #-------------------------------------------------------------------------------
     
@@ -1847,10 +1836,10 @@ calculate_stream_depletions <- function(streams,
                                                  stream_id_key = stream_id_key,
                                                  wells = wells,
                                                  apportionment_criteria = apportionment_criteria)
-    
     reach_impact_frac <- output[[1]]
     impacted_reaches <- output[[2]]
     closest_points_per_segment <- output[[3]]
+    
     
     #-------------------------------------------------------------------------------
     # writeout
