@@ -152,7 +152,11 @@ calculate_stream_depletions <- function(streams,
       well_intersect_indices <- st_intersects(subwatersheds,
                                               wells[i, ])
       rm_empty_intersections <- which(lengths(well_intersect_indices) == 0)
-      well_intersect_indices <- c(1:length(well_intersect_indices))[-c(rm_empty_intersections)]
+      if(length(rm_empty_intersections) > 0){
+        well_intersect_indices <- c(1:length(well_intersect_indices))[-c(rm_empty_intersections)]
+      } else {
+        well_intersect_indices <- c(1:length(well_intersect_indices))
+      }
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
@@ -180,7 +184,11 @@ calculate_stream_depletions <- function(streams,
         strm_intersect_indices <- st_intersects(stream_points_geometry,
                                                 st_geometry(subwatersheds[well_intersect_indices, ]))
         rm_empty_intersections <- which(lengths(strm_intersect_indices) == 0)
-        strm_intersect_indices <- c(1:length(strm_intersect_indices))[-c(rm_empty_intersections)]
+        if(length(rm_empty_intersections) > 0){
+          strm_intersect_indices <- c(1:length(strm_intersect_indices))[-c(rm_empty_intersections)]
+        } else {
+          strm_intersect_indices <- c(1:length(strm_intersect_indices))
+        }
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
@@ -278,7 +286,11 @@ calculate_stream_depletions <- function(streams,
       well_intersect_indices <- st_intersects(subwatersheds,
                                               wells[i, ])
       rm_empty_intersections <- which(lengths(well_intersect_indices) == 0)
-      well_intersect_indices <- c(1:length(well_intersect_indices))[-c(rm_empty_intersections)]
+      if(length(rm_empty_intersections) > 0){
+        well_intersect_indices <- c(1:length(well_intersect_indices))[-c(rm_empty_intersections)]
+      } else {
+        well_intersect_indices <- c(1:length(well_intersect_indices))
+      }
       #-------------------------------------------------------------------------------
       
       
@@ -307,7 +319,11 @@ calculate_stream_depletions <- function(streams,
         strm_intersect_indices <- st_intersects(stream_points_geometry,
                                                 st_geometry(subwatersheds[well_intersect_indices, ]))
         rm_empty_intersections <- which(lengths(strm_intersect_indices) == 0)
-        strm_intersect_indices <- c(1:length(strm_intersect_indices))[-c(rm_empty_intersections)]
+        if(length(rm_empty_intersections) > 0){
+          strm_intersect_indices <- c(1:length(strm_intersect_indices))[-c(rm_empty_intersections)]
+        } else {
+          strm_intersect_indices <- c(1:length(strm_intersect_indices))
+        }
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
@@ -315,7 +331,11 @@ calculate_stream_depletions <- function(streams,
         expanding_indices <- st_intersects(stream_points_geometry,
                                            st_buffer(wells[i, ], influence_radius))
         rm_empty_intersections <- which(lengths(expanding_indices) == 0)
-        expanding_indices <- c(1:length(expanding_indices))[-c(rm_empty_intersections)]
+        if(length(rm_empty_intersections) > 0){
+          expanding_indices <- c(1:length(expanding_indices))[-c(rm_empty_intersections)]
+        } else {
+          expanding_indices <- c(1:length(expanding_indices))
+        }
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
