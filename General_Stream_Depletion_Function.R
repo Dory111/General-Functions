@@ -123,6 +123,14 @@ calculate_stream_depletions <- function(streams,
   
   
   #===========================================================================================
+  # inverse complimentary error function
+  #===========================================================================================
+  erfcinv <- function(y) {
+    return(qnorm(1 - y / 2) / sqrt(2))
+  }
+  #-------------------------------------------------------------------------------
+  
+  #===========================================================================================
   # called to find stream points impacted by wells within the same watershed
   #===========================================================================================
   find_adjacent_stream_points <- function(wells,
@@ -1469,6 +1477,8 @@ calculate_stream_depletions <- function(streams,
         #-------------------------------------------------------------------------------
         depletions_per_well <- list()
         pump_frac_per_well <- list()
+        sdf <- list()
+        depletions_99 <- erfcinv(0.99)
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -1498,6 +1508,13 @@ calculate_stream_depletions <- function(streams,
           #-------------------------------------------------------------------------------
           depletions_per_well[[counter]] <- Q_final
           pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
+          # sdf taken from barlow and leake 2012 citing Jenkins 1968
+          # https://pubs.usgs.gov/circ/1376/
+          # gives time of maximum impact
+          # sdf[[counter]] <- ((distance*distance)*stor_coef)/transmissivity
+          
+          # specific to glover
+          sdf[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_99)
           #-------------------------------------------------------------------------------
         }
         #-------------------------------------------------------------------------------
@@ -1505,11 +1522,42 @@ calculate_stream_depletions <- function(streams,
         #-------------------------------------------------------------------------------
         # fractional depletion method taken from Zipper 2019
         # https://doi.org/10.1029/2018WR024403 eq 1
+        # sdf taken from barlow and leake 2012 citing Jenkins 1968
+        # https://pubs.usgs.gov/circ/1376/
+        # qs(t)  = Qw * erfc(z)
+        # Qs (90 % depletions) = wanted quantity (time to 90% depletions)
+        # Qs (90%) = Qw * erfc(z99)
+        # erfc(z99) = 0.99
+        # z99 = erfcinv(0.99) = 0.0086
+        # z99 = sqrt(Sd^2/4Tt99) [Zipper 2019; Glover and Balmer 1954]
+        # z99 = d/2(sqrt(Tt99/S))
+        # t99 = (d/2*z99)^2 * S/T
+        # t99 = d^2*S/4Tz99^2
+        
+        # evaluate erfcinv at 0.99 (when 99% has occured) to get function value
+        # evaluate at what time this must have occurred by rearranging equation
         depletions_total <- do.call(cbind, depletions_per_well)
         pump_frac_total <- do.call(cbind, pump_frac_per_well)
+        # take median so if we have a far away well that is close to no other stream
+        # it doesnt bias sdf_avg
+        sdf_avg <- round(median(unlist(sdf), na.rm = T), 0)
+        #-------------------------------------------------------------------------------
         
+        #-------------------------------------------------------------------------------
         if(str_to_title(stream_depletion_output) == 'Fractional'){
-          depletions_per_reach[[i]] <- base::rowSums(depletions_total)/base::rowSums(pump_frac_total)
+          
+          #-------------------------------------------------------------------------------
+          # get the average pumping occuring over the time period that pumping is having the 
+          # maximum impact on streams mean(pump[t-sdf_avg : t])
+          sum_pump_frac <- base::rowSums(pump_frac_total)
+          
+          sum_pump_frac_lagged <- sapply(seq_along(sum_pump_frac), function(i) {
+            start <- max(1, i - sdf_avg)
+            mean(sum_pump_frac[start:i])
+          })
+          depletions_per_reach[[i]] <- base::rowSums(depletions_total)/sum_pump_frac_lagged
+          #-------------------------------------------------------------------------------
+
         } else {
           depletions_per_reach[[i]] <- base::rowSums(depletions_total)
         }
