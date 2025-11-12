@@ -427,7 +427,11 @@ calculate_stream_depletions <- function(streams,
       strm_intersect_indices <- st_intersects(stream_points_geometry,
                                               st_buffer(wells[i, ], influence_radius))
       rm_empty_intersections <- which(lengths(strm_intersect_indices) == 0)
-      strm_intersect_indices <- c(1:length(strm_intersect_indices))[-c(rm_empty_intersections)]
+      if(length(rm_empty_intersections) > 0){
+        strm_intersect_indices <- c(1:length(strm_intersect_indices))[-c(rm_empty_intersections)]
+      } else {
+        strm_intersect_indices <- c(1:length(strm_intersect_indices))
+      }
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
@@ -2054,9 +2058,9 @@ calculate_stream_depletions <- function(streams,
     
     
     #-------------------------------------------------------------------------------
-    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
-                'proximity criteria required subwatersheds (Adjacent | Adjacent+Expanding)',
-                'but none supplied',
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
+                'proximity criteria required subwatersheds (Adjacent | Adjacent+Expanding)\n',
+                'but none supplied\n',
                 'exiting program ...'))
     #-------------------------------------------------------------------------------
   } else if (str_to_title(proximity_criteria) %in% c('Local Area',
@@ -2075,9 +2079,9 @@ calculate_stream_depletions <- function(streams,
     
     
     #-------------------------------------------------------------------------------
-    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
-                'proximity criteria required influence radius (Local Area | Expanding | Adjacent+Expanding)',
-                'but none supplied',
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
+                'proximity criteria required influence radius (Local Area | Expanding | Adjacent+Expanding)\n',
+                'but none supplied\n',
                 'exiting program ...'))
     #-------------------------------------------------------------------------------
   } else {}
@@ -2096,9 +2100,9 @@ calculate_stream_depletions <- function(streams,
     
     
     #-------------------------------------------------------------------------------
-    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
                 'Identifying column for streams required to calculate impacted length',
-                'but none supplied',
+                'but none supplied\n',
                 'exiting program ...'))
     #-------------------------------------------------------------------------------
   }
@@ -2120,10 +2124,10 @@ calculate_stream_depletions <- function(streams,
     
     
     #-------------------------------------------------------------------------------
-    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
                 'Identifying column for storage coefficient in ',
-                analycial_model,
-                ' model required but not present in well set',
+                analytical_model,
+                ' model required but not present in well set\n',
                 'exiting program ...'))
     #-------------------------------------------------------------------------------
   }
@@ -2147,10 +2151,44 @@ calculate_stream_depletions <- function(streams,
     
     
     #-------------------------------------------------------------------------------
-    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    ',
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
                 'Identifying column for transmissivity in ',
-                analycial_model,
-                ' model required but not present in well set',
+                analytical_model,
+                ' model required but not present in well set\n',
+                'exiting program ...'))
+    #-------------------------------------------------------------------------------
+  }
+  
+  
+  
+  
+  if(str_to_title(apportionment_criteria) == 'Thiessen Polygon' &
+     nrow(streams) == 1){
+    #-------------------------------------------------------------------------------
+    writeLines(text = sprintf('%s',
+                              paste0('Apportionment criteria of ',
+                                     apportionment_criteria,
+                                     ' selected but only one stream present')),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              paste0(apportionment_criteria,'s',
+                                     ' cannot be made out of only one entity')),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'Exiting program ...'),
+               con = log_file)
+    close(log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
+                'Apportionment criteria of ',
+                apportionment_criteria,
+                ' selected but only one stream present\n',
+                apportionment_criteria,'s',
+                ' cannot be made out of only one entity\n',
+                'please select another apportionment method\n',
                 'exiting program ...'))
     #-------------------------------------------------------------------------------
   }
@@ -2313,11 +2351,45 @@ calculate_stream_depletions <- function(streams,
                 row.names = FALSE)
     }
     #-------------------------------------------------------------------------------
+
+    #-------------------------------------------------------------------------------
+    # subtracting a column from a two column data frame turns it into a vector
+    # when this behavior is not wanted, this is a workaround for this special case
+    # of only one well being present
+    if(ncol(reach_impact_frac) < 3){
+      cnams <- colnames(reach_impact_frac)
+      m <- matrix(data = as.vector(unlist(reach_impact_frac[,-c(1)])),
+                  nrow = nrow(reach_impact_frac),
+                  ncol = ncol(reach_impact_frac) - 1,
+                  byrow = TRUE)
+      reach_impact_frac <- as.data.frame(m)
+      colnames(reach_impact_frac) <- cnams[-c(1)]
+      
+      
+      cnams <- colnames(impacted_reaches)
+      m <- matrix(data = as.vector(unlist(impacted_reaches[,-c(1)])),
+                  nrow = nrow(impacted_reaches),
+                  ncol = ncol(impacted_reaches) - 1,
+                  byrow = TRUE)
+      impacted_reaches <- as.data.frame(m)
+      colnames(impacted_reaches) <- cnams[-c(1)]
+      
+      
+      cnams <- colnames(closest_points_per_segment)
+      m <- matrix(data = as.vector(unlist(closest_points_per_segment[,-c(1)])),
+                  nrow = nrow(closest_points_per_segment),
+                  ncol = ncol(closest_points_per_segment) - 1,
+                  byrow = TRUE)
+      closest_points_per_segment <- as.data.frame(m)
+      colnames(closest_points_per_segment) <- cnams[-c(1)]
+    } else {
+      reach_impact_frac <- reach_impact_frac[,-c(1)]
+      impacted_reaches <- impacted_reaches[,-c(1)]
+      closest_points_per_segment <- closest_points_per_segment[,-c(1)]
+    }
+    #-------------------------------------------------------------------------------
     
-    reach_impact_frac <- reach_impact_frac[,-c(1)]
-    impacted_reaches <- impacted_reaches[,-c(1)]
-    closest_points_per_segment <- closest_points_per_segment[,-c(1)]
-    
+
     #-------------------------------------------------------------------------------
     # save space
     rm(output)
