@@ -24,7 +24,8 @@ calculate_stream_depletions <- function(streams,
                                         apportionment_criteria = 'inverse distance',
                                         analytical_model = 'glover',
                                         stream_depletion_output = 'volumetric',
-                                        lagged_depletions_time = 0.99,
+                                        lagged_depletions_end_time = 0.99,
+                                        lagged_depletions_start_time = 0.01,
                                         data_out_dir = getwd(),
                                         diag_out_dir = getwd(),
                                         suppress_loading_bar = TRUE,
@@ -1486,8 +1487,10 @@ calculate_stream_depletions <- function(streams,
         #-------------------------------------------------------------------------------
         depletions_per_well <- list()
         pump_frac_per_well <- list()
-        sdf <- list()
-        depletions_time <- erfcinv(lagged_depletions_time)
+        sdf_end <- list()
+        sdf_start <-
+        depletions_end_time <- erfcinv(lagged_depletions_end_time)
+        depletions_start_time <- erfcinv(lagged_depletions_start_time)
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -1523,7 +1526,8 @@ calculate_stream_depletions <- function(streams,
           # sdf[[counter]] <- ((distance*distance)*stor_coef)/transmissivity
           
           # specific to glover
-          sdf[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_time)
+          sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time)
+          sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time)
           #-------------------------------------------------------------------------------
         }
         #-------------------------------------------------------------------------------
@@ -1549,7 +1553,14 @@ calculate_stream_depletions <- function(streams,
         pump_frac_total <- do.call(cbind, pump_frac_per_well)
         # take median so if we have a far away well that is close to no other stream
         # it doesnt bias sdf_avg
-        sdf_avg <- round(median(unlist(sdf), na.rm = T), 0)
+        sdf_end_avg <- round(median(unlist(sdf_end), na.rm = T), 0)
+        sdf_start <- unlist(sdf_start)
+        sdf_start <- sort(sdf_start[is.na(sdf_start) == FALSE])
+        start_weights <- rev(c(1:length(sdf_start)))
+        
+        # take weighted average of sdf starts for conservative net of which pumping
+        # is currently contributing to depletions
+        sdf_start_avg <- round(weighted.mean(sdf_start,start_weights),0)
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
@@ -1561,8 +1572,21 @@ calculate_stream_depletions <- function(streams,
           sum_pump_frac <- base::rowSums(pump_frac_total)
           
           sum_pump_frac_lagged <- sapply(seq_along(sum_pump_frac), function(i) {
-            start <- max(1, i - sdf_avg)
-            mean(sum_pump_frac[start:i])
+            start <- max(1, i - sdf_end_avg)
+            
+            if(i <= sdf_start_avg){
+              end <- i
+            } else if (i > sdf_start_avg &
+                       i < sdf_start_avg*2){
+              end <- sdf_start_avg
+            } else {
+              end <- i - sdf_start_avg
+            }
+            
+            mean(sum_pump_frac[start:end]) # sum on rolling window based on sdf
+            # lets say i = 30, we might sum between pump_frac[12:27] or something like that
+            # accounts for the fact that pumping at time i will not impact stream for a number of time
+            # steps and that it will continue to effect it for a number of time steps
           })
           depletions_per_reach[[i]] <- base::rowSums(depletions_total)/sum_pump_frac_lagged
           #-------------------------------------------------------------------------------
@@ -2091,7 +2115,7 @@ calculate_stream_depletions <- function(streams,
   ############################################################################################
   ######################################### RUN FUNCTIONS ####################################
   ############################################################################################
-  required_packages <- c('sf','sp','raster','terra','lubridate','stringr')
+  required_packages <- c('sf','sp','raster','terra','lubridate','stringr','stats')
   for(i in 1:length(required_packages)){
     require_package(required_packages[i])
   }
