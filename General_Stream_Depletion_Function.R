@@ -1488,7 +1488,7 @@ calculate_stream_depletions <- function(streams,
         depletions_per_well <- list()
         pump_frac_per_well <- list()
         sdf_end <- list()
-        sdf_start <-
+        sdf_start <- list()
         depletions_end_time <- erfcinv(lagged_depletions_end_time)
         depletions_start_time <- erfcinv(lagged_depletions_start_time)
         counter <- 0
