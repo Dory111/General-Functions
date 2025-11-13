@@ -24,6 +24,7 @@ calculate_stream_depletions <- function(streams,
                                         apportionment_criteria = 'inverse distance',
                                         analytical_model = 'glover',
                                         stream_depletion_output = 'volumetric',
+                                        lagged_depletions_time = 0.99,
                                         data_out_dir = getwd(),
                                         diag_out_dir = getwd(),
                                         suppress_loading_bar = TRUE,
@@ -113,6 +114,14 @@ calculate_stream_depletions <- function(streams,
   
   #===========================================================================================
   # complimentary error function
+  # as x approaches 0 erfc returns 1. 
+  # for example in glover model where Qs(t) = Qw*erfc(z)
+  # where z = sqrt((d^2*S)/(4Tt))
+  # as t approaches infinity the expression z approaches 0
+  # and erfc returns 1
+  # therefore at t = infinity the cumulative depletion will
+  # be equal to the pumping rate
+  # therefore when 99% of depletions have happened erfc (z) will return 0.99
   #===========================================================================================
   erfc <- function(x)
   {
@@ -1478,7 +1487,7 @@ calculate_stream_depletions <- function(streams,
         depletions_per_well <- list()
         pump_frac_per_well <- list()
         sdf <- list()
-        depletions_99 <- erfcinv(0.99)
+        depletions_time <- erfcinv(lagged_depletions_time)
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -1514,7 +1523,7 @@ calculate_stream_depletions <- function(streams,
           # sdf[[counter]] <- ((distance*distance)*stor_coef)/transmissivity
           
           # specific to glover
-          sdf[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_99)
+          sdf[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_time)
           #-------------------------------------------------------------------------------
         }
         #-------------------------------------------------------------------------------
