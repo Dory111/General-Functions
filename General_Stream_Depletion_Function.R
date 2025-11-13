@@ -135,7 +135,8 @@ calculate_stream_depletions <- function(streams,
   #===========================================================================================
   # inverse complimentary error function
   #===========================================================================================
-  erfcinv <- function(y) {
+  erfcinv <- function(y) 
+  {
     return(qnorm(1 - y / 2) / sqrt(2))
   }
   #-------------------------------------------------------------------------------
@@ -324,9 +325,16 @@ calculate_stream_depletions <- function(streams,
         # check which subwatershed touches original subwatershed
         subwatershed_touches_indices <- st_touches(subwatersheds,
                                                    subwatersheds[well_intersect_indices, ])
-        subwatershed_touches_indices <- which(lengths(subwatershed_touches_indices) == 0)
-        subwatershed_touches_indices <- c(1:length(subwatershed_touches_indices))[-c(rm_empty_intersections)]
+        rm_empty_intersections <- which(lengths(subwatershed_touches_indices) == 0)
+        if(length(rm_empty_intersections) > 0){
+          subwatershed_touches_indices <- c(1:length(subwatershed_touches_indices))[-c(rm_empty_intersections)]
+        } else {
+          subwatershed_touches_indices <- c(1:length(subwatershed_touches_indices))
+        }
+        #-------------------------------------------------------------------------------
         
+        #-------------------------------------------------------------------------------
+        # append to the one well already within
         if(length(subwatershed_touches_indices) > 0){
           well_intersect_indices <- append(well_intersect_indices,
                                            subwatershed_touches_indices)
@@ -334,34 +342,21 @@ calculate_stream_depletions <- function(streams,
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
+        # take st_union of buffer around well and all the watersheds identified above
+        adjacent_expanding_geometry <- st_union(subwatersheds[well_intersect_indices, ],
+                                                st_buffer(wells[i, ], influence_radius))
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
         # find which streams are within adjacent watersheds
         strm_intersect_indices <- st_intersects(stream_points_geometry,
-                                                st_geometry(subwatersheds[well_intersect_indices, ]))
+                                                st_geometry(adjacent_expanding_geometry))
         rm_empty_intersections <- which(lengths(strm_intersect_indices) == 0)
         if(length(rm_empty_intersections) > 0){
           strm_intersect_indices <- c(1:length(strm_intersect_indices))[-c(rm_empty_intersections)]
         } else {
           strm_intersect_indices <- c(1:length(strm_intersect_indices))
         }
-        #-------------------------------------------------------------------------------
-        
-        #-------------------------------------------------------------------------------
-        # find which streams are within influence radius
-        expanding_indices <- st_intersects(stream_points_geometry,
-                                           st_buffer(wells[i, ], influence_radius))
-        rm_empty_intersections <- which(lengths(expanding_indices) == 0)
-        if(length(rm_empty_intersections) > 0){
-          expanding_indices <- c(1:length(expanding_indices))[-c(rm_empty_intersections)]
-        } else {
-          expanding_indices <- c(1:length(expanding_indices))
-        }
-        #-------------------------------------------------------------------------------
-        
-        #-------------------------------------------------------------------------------
-        # append
-        strm_intersect_indices <- append(strm_intersect_indices,
-                                         expanding_indices)
-        strm_intersect_indices <- unique(strm_intersect_indices)
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
