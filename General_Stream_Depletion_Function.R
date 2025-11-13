@@ -92,6 +92,21 @@ calculate_stream_depletions <- function(streams,
   }
   # ------------------------------------------------------------------------------------------------
   
+  #===========================================================================================
+  # weighted mean function to avoid loading the stats library
+  #===========================================================================================
+  weighted_mean <- function(x, w, na.rm = FALSE)
+  {
+    # get where both x and weights are real values
+    if(na.rm == T){
+      valid_pos <- !(is.na(x) == TRUE | is.na(w) == TRUE)
+      x <- x[valid_pos]
+      w <- w[valid_pos]
+    }
+    wmean <- sum(x*w)/sum(w)
+    return(wmean)
+  }
+  # ------------------------------------------------------------------------------------------------
   
   #===========================================================================================
   # must be the geometry itself and not the entire sf object
@@ -1555,7 +1570,9 @@ calculate_stream_depletions <- function(streams,
         
         # take weighted average of sdf starts for conservative net of which pumping
         # is currently contributing to depletions
-        sdf_start_avg <- round(weighted.mean(sdf_start,start_weights),0)
+        sdf_start_avg <- round(weighted_mean(x = sdf_start,
+                                             w = start_weights,
+                                             na.rm = TRUE),0)
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
@@ -2116,7 +2133,7 @@ calculate_stream_depletions <- function(streams,
   ############################################################################################
   ######################################### RUN FUNCTIONS ####################################
   ############################################################################################
-  required_packages <- c('sf','sp','raster','terra','lubridate','stringr','stats')
+  required_packages <- c('sf','sp','raster','terra','lubridate','stringr')
   for(i in 1:length(required_packages)){
     require_package(required_packages[i])
   }
