@@ -1650,7 +1650,7 @@ calculate_stream_depletions <- function(streams,
     if(str_to_title(stream_depletion_output) == 'Fractional'){
       u <-  paste('(decimal [0,1]):')
     } else {
-      u <- paste('(',units,'^3','):')
+      u <- paste0('(',units,'^3','):')
     }
     
     writeLines(text = sprintf('%s %s',
@@ -2190,6 +2190,12 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     writeLines(text = sprintf('%s',
                               'Proximity criteria required influence radius but none supplied'),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'If using Local Area critiera please calculate influence radius as per:'),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'Zipper et al. (2019) https://doi.org/10.1029/2018WR024403'),
                con = log_file)
     writeLines(text = sprintf('%s',
                               'Exiting program ...'),
