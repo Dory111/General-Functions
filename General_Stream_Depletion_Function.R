@@ -1635,6 +1635,12 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # write status to log
+    if(str_to_title(stream_depletion_output) == 'Fractional'){
+      u <-  paste('(decimal [0,1]):')
+    } else {
+      u <- paste('(',units,'^3','):')
+    }
+    
     writeLines(text = sprintf('%s %s',
                               'Mean | Median start of stream depletions (timestep): ',
                               paste(round(mean_start_of_depletions,2),
@@ -1644,7 +1650,7 @@ calculate_stream_depletions <- function(streams,
     
     
     writeLines(text = sprintf('%s %s',
-                              paste('Mean | Median final depletions','(',units,'^3','):'),
+                              paste('Mean | Median final depletions',u),
                               paste(round(mean_final_depletions,4),
                                     '|',
                                     round(median_final_depletions,4),
@@ -1653,7 +1659,7 @@ calculate_stream_depletions <- function(streams,
                con = log_file)
     
     writeLines(text = sprintf('%s %s',
-                              paste('Max final depletions','(',units,'^3','):'),
+                              paste('Max final depletions',u),
                               paste(round(max_final_depletions,4),
                                     'at timestep (t_final)',
                                     n_timesteps,
@@ -2495,6 +2501,9 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     # save space
     rm(output)
+    writeLines(text = sprintf('%s',
+                              ''),
+               con = log_file)
     #-------------------------------------------------------------------------------
   }, error = function(e){
     #-------------------------------------------------------------------------------
