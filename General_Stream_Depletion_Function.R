@@ -2052,14 +2052,21 @@ calculate_stream_depletions <- function(streams,
           transmissivity <- as.numeric(st_drop_geometry(wells[j, transmissivity_key]))
           stor_coef <- as.numeric(st_drop_geometry(wells[j, stor_coef_key]))
           
-          reaches <- as.vector(unlist(stream_points_geometry[,stream_id_key]))
+          
+          reaches <- as.vector(unlist(st_drop_geometry(stream_points_geometry[,stream_id_key])))
           stream_inds <- reaches == RN[j]
+          all_distances <- st_distance(wells[j, ],
+                                       stream_points_geometry[stream_inds, ])
+          all_distances <- c(1:length(all_distances))[order(as.numeric(all_distances))]
+          
           width_r <- as.vector(unlist(st_drop_geometry(stream_points_geometry[stream_inds, width_key])))
           clog_k <- as.vector(unlist(st_drop_geometry(stream_points_geometry[stream_inds, clog_k_key])))
           clog_bed_thick <- as.vector(unlist(st_drop_geometry(stream_points_geometry[stream_inds, clog_bed_thick_key])))
-          width_r <- mean(width_r, na.rm = T)
-          clog_k <- mean(clog_k, na.rm = T)
-          clog_bed_thick <- mean(clog_bed_thick, na.rm = T)
+          
+          
+          width_r <- weighted_mean(x = width_r, w = all_distances, na.rm = T)
+          clog_k <- weighted_mean(x = clog_k, w = all_distances, na.rm = T)
+          clog_bed_thick <- weighted_mean(x = clog_bed_thick, w = all_distances, na.rm = T)
           #-------------------------------------------------------------------------------
           
           #-------------------------------------------------------------------------------
