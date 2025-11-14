@@ -2848,38 +2848,13 @@ calculate_stream_depletions <- function(streams,
   
   if(str_to_title(analytical_model) == 'Glover' &
      (is.null(stor_coef_key) == TRUE |
-     !stor_coef_key %in% colnames(wells))){
-    #-------------------------------------------------------------------------------
-    writeLines(text = sprintf('%s',
-                              paste0('Identifying column for storage coefficient in ',
-                                     analycial_model,
-                                     ' model required but not present in well set')),
-               con = log_file)
-    writeLines(text = sprintf('%s',
-                              'Exiting program ...'),
-               con = log_file)
-    close(log_file)
-    #-------------------------------------------------------------------------------
-    
-    
-    #-------------------------------------------------------------------------------
-    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
-                'Identifying column for storage coefficient in ',
-                analytical_model,
-                ' model required but not present in well set\n',
-                'exiting program ...'))
-    #-------------------------------------------------------------------------------
-  }
-  
-  
-  
-  if(str_to_title(analytical_model) == 'Glover' &
+     !stor_coef_key %in% colnames(wells)) |
      (is.null(transmissivity_key) == TRUE |
-     !transmissivity_key %in% colnames(wells))){
+      !transmissivity_key %in% colnames(wells))){
     #-------------------------------------------------------------------------------
     writeLines(text = sprintf('%s',
-                              paste0('Identifying column for transmissivity in ',
-                                     analycial_model,
+                              paste0('Identifying column for storage coefficient or transmissivity in ',
+                                     str_to_title(analytical_model),
                                      ' model required but not present in well set')),
                con = log_file)
     writeLines(text = sprintf('%s',
@@ -2891,12 +2866,45 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
-                'Identifying column for transmissivity in ',
-                analytical_model,
+                'Identifying column for storage coefficient or transmissivity in ',
+                str_to_title(analytical_model),
                 ' model required but not present in well set\n',
                 'exiting program ...'))
     #-------------------------------------------------------------------------------
   }
+  
+  
+  if(str_to_title(analytical_model) == 'Hunt' &
+     (is.null(width_key) == TRUE |
+      !width_key %in% colnames(stream_points_geometry)) |
+     (is.null(clog_k_key) == TRUE |
+      !clog_k_key %in% colnames(stream_points_geometry)) |
+     (is.null(clog_bed_thick_key) == TRUE |
+      !clog_bed_thick_key %in% colnames(stream_points_geometry))){
+    #-------------------------------------------------------------------------------
+    writeLines(text = sprintf('%s',
+                              paste0('Identifying column for river width, river bed clogging layer conductivity, or',
+                                     ' clogging layer width in ',
+                                     str_to_title(analytical_model),
+                                     ' model required but not present in streams set')),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'Exiting program ...'),
+               con = log_file)
+    close(log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
+                'Identifying column for river width, river bed clogging layer conductivity, or\n',
+                'clogging layer width in ',
+                str_to_title(analytical_model),
+                ' model required but not present in streams set\n',
+                'exiting program ...'))
+    #-------------------------------------------------------------------------------
+  }
+  
   
   
   
