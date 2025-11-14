@@ -11,7 +11,7 @@
 #   \  \::/     \  \:\      \  \:\       \__\/     /__/:/                \__\/      \  \::/     \  \:\         \__\/
 #    \__\/       \__\/       \__\/                 \__\/                             \__\/       \__\/              
 #   
-# 11/5/2025 - 11/7/2025
+# V1 11/5/2025 - 11/14/2025
 calculate_stream_depletions <- function(streams,
                                         streams_are_points = FALSE,
                                         stream_id_key = NULL,
