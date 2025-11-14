@@ -1496,11 +1496,17 @@ calculate_stream_depletions <- function(streams,
         
         #-------------------------------------------------------------------------------
         depletions_per_well <- list()
-        pump_frac_per_well <- list()
-        sdf_end <- list()
-        sdf_start <- list()
-        depletions_end_time <- erfcinv(lagged_depletions_end_time)
-        depletions_start_time <- erfcinv(lagged_depletions_start_time)
+
+        
+        if(str_to_title(stream_depletion_output) == 'Fractional'){
+          pump_frac_per_well <- list()
+          sdf_end <- list()
+          sdf_start <- list()
+          
+          depletions_end_time <- erfcinv(lagged_depletions_end_time)
+          depletions_start_time <- erfcinv(lagged_depletions_start_time)
+        }
+
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -1529,54 +1535,58 @@ calculate_stream_depletions <- function(streams,
           
           #-------------------------------------------------------------------------------
           depletions_per_well[[counter]] <- Q_final
-          pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
-          # sdf taken from barlow and leake 2012 citing Jenkins 1968
-          # https://pubs.usgs.gov/circ/1376/
-          # gives time of maximum impact
-          # sdf[[counter]] <- ((distance*distance)*stor_coef)/transmissivity
-          
-          # specific to glover
-          sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time)
-          sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time)
+          if(str_to_title(stream_depletion_output) == 'Fractional'){
+            pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
+            
+            sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time)
+            sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time)
+          }
           #-------------------------------------------------------------------------------
         }
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
-        # fractional depletion method taken from Zipper 2019
-        # https://doi.org/10.1029/2018WR024403 eq 1
-        # sdf taken from barlow and leake 2012 citing Jenkins 1968
-        # https://pubs.usgs.gov/circ/1376/
-        # qs(t)  = Qw * erfc(z)
-        # Qs (90 % depletions) = wanted quantity (time to 90% depletions)
-        # Qs (90%) = Qw * erfc(z99)
-        # erfc(z99) = 0.99
-        # z99 = erfcinv(0.99) = 0.0086
-        # z99 = sqrt(Sd^2/4Tt99) [Zipper 2019; Glover and Balmer 1954]
-        # z99 = d/2(sqrt(Tt99/S))
-        # t99 = (d/2*z99)^2 * S/T
-        # t99 = d^2*S/4Tz99^2
-        
-        # evaluate erfcinv at 0.99 (when 99% has occured) to get function value
-        # evaluate at what time this must have occurred by rearranging equation
         depletions_total <- do.call(cbind, depletions_per_well)
-        pump_frac_total <- do.call(cbind, pump_frac_per_well)
-        # take median so if we have a far away well that is close to no other stream
-        # it doesnt bias sdf_avg
-        sdf_end_avg <- round(median(unlist(sdf_end), na.rm = T), 0)
-        sdf_start <- unlist(sdf_start)
-        sdf_start <- sort(sdf_start[is.na(sdf_start) == FALSE])
-        start_weights <- rev(c(1:length(sdf_start)))
-        
-        # take weighted average of sdf starts for conservative net of which pumping
-        # is currently contributing to depletions
-        sdf_start_avg <- round(weighted_mean(x = sdf_start,
-                                             w = start_weights,
-                                             na.rm = TRUE),0)
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
         if(str_to_title(stream_depletion_output) == 'Fractional'){
+          #-------------------------------------------------------------------------------
+          # fractional depletion method taken from Zipper 2019
+          # https://doi.org/10.1029/2018WR024403 eq 1
+          # sdf taken from barlow and leake 2012 citing Jenkins 1968
+          # https://pubs.usgs.gov/circ/1376/
+          # qs(t)  = Qw * erfc(z)
+          # Qs (90 % depletions) = wanted quantity (time to 90% depletions)
+          # Qs (90%) = Qw * erfc(z99)
+          # erfc(z99) = 0.99
+          # z99 = erfcinv(0.99) = 0.0086
+          # z99 = sqrt(Sd^2/4Tt99) [Zipper 2019; Glover and Balmer 1954]
+          # z99 = d/2(sqrt(Tt99/S))
+          # t99 = (d/2*z99)^2 * S/T
+          # t99 = d^2*S/4Tz99^2
+          
+          # evaluate erfcinv at 0.99 (when 99% has occured) to get function value
+          # evaluate at what time this must have occurred by rearranging equation
+          
+          
+          
+          pump_frac_total <- do.call(cbind, pump_frac_per_well)
+          # take median so if we have a far away well that is close to no other stream
+          # it doesnt bias sdf_avg
+          sdf_end_avg <- round(median(unlist(sdf_end), na.rm = T), 0)
+          sdf_start <- unlist(sdf_start)
+          sdf_start <- sort(sdf_start[is.na(sdf_start) == FALSE])
+          start_weights <- rev(c(1:length(sdf_start)))
+          
+          # take weighted average of sdf starts for conservative net of which pumping
+          # is currently contributing to depletions
+          sdf_start_avg <- round(weighted_mean(x = sdf_start,
+                                               w = start_weights,
+                                               na.rm = TRUE),0)
+          #-------------------------------------------------------------------------------
+          
+          
           
           #-------------------------------------------------------------------------------
           # get the average pumping occuring over the time period that pumping is having the 
