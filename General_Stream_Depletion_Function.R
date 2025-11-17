@@ -32,9 +32,9 @@ calculate_stream_depletions <- function(streams,
                                         suppress_console_messages = TRUE,
                                         stor_coef_key = 'Stor',
                                         transmissivity_key = 'Tr',
-                                        width_key = NULL,
-                                        clog_k_key = NULL,
-                                        clog_bed_thick_key = NULL)
+                                        leakance_key = NULL,
+                                        lambda_key = NULL,
+                                        prec = 80)
 {
 
   ############################################################################################
@@ -1718,21 +1718,18 @@ calculate_stream_depletions <- function(streams,
                                                  wells = wells,
                                                  transmissivity_key = transmissivity_key,
                                                  stor_coef_key = stor_coef_key,
-                                                 width_key = width_key,
-                                                 clog_k_key = clog_k_key,
-                                                 clog_bed_thick_key = clog_bed_thick_key,
+                                                 lambda_key,
                                                  stream_depletion_output = stream_depletion_output)
   {
     #===========================================================================================
     # Calculates stream depletions assuming a fully penetrating stream with no
-    # clogging layer according to Glover and Balmer (1954) https://doi.org/10.1029/TR035i003p00468
+    # clogging layer according to Hunt (1999) https://doi.org/10.1111/j.1745-6584.1999.tb00962.x
+    # identical to Hantush (1965) model in special case that lambda = 2*(T/L)
     #===========================================================================================
     hunt_stream_depletion_model <- function(stor_coef,
                                             transmissivity,
                                             distance,
-                                            width_r,
-                                            clog_k,
-                                            clog_bed_thick,
+                                            lambda,
                                             QW)
     {
       #-------------------------------------------------------------------------------
@@ -1747,20 +1744,11 @@ calculate_stream_depletions <- function(streams,
                            transmissivity,
                            elapsed_time,
                            distance,
-                           width_r,
-                           clog_k,
-                           clog_bed_thick)
+                           lambda)
       {
         #-------------------------------------------------------------------------------
-        # const term
-        lmda <- width_r * (clog_k/clog_bed_thick)
-        #-------------------------------------------------------------------------------
-        
-        
-        
-        #-------------------------------------------------------------------------------
-        t2_a <- ((lmda*lmda*elapsed_time)/(4*stor_coef*transmissivity))
-        t2_b <- ((lmda*distance)/(2*transmissivity))
+        t2_a <- ((lambda*lambda*elapsed_time)/(4*stor_coef*transmissivity))
+        t2_b <- ((lambda*distance)/(2*transmissivity))
         t2 <- base::exp(t2_a + t2_b)
         
         infinite_indices <- which(is.infinite(t2))
@@ -1777,7 +1765,7 @@ calculate_stream_depletions <- function(streams,
                        (4*transmissivity*elapsed_time)))
           t1 <- erfc(z)
           
-          t3_a <- (sqrt((lmda*lmda*elapsed_time)/(4*stor_coef*transmissivity)))
+          t3_a <- (sqrt((lambda*lambda*elapsed_time)/(4*stor_coef*transmissivity)))
           t3 <- erfc(t3_a + z)
           #-------------------------------------------------------------------------------
           
@@ -1795,16 +1783,16 @@ calculate_stream_depletions <- function(streams,
           #-------------------------------------------------------------------------------
           # assemble terms
           z <- Rmpfr::mpfr((sqrt((stor_coef * distance* distance)/
-                                   (4*transmissivity*elapsed_time[infinite_indices]))), 80)
+                                   (4*transmissivity*elapsed_time[infinite_indices]))), prec = prec)
           t1 <- Rmpfr::erfc(z)
           
           
-          t2_a <- Rmpfr::mpfr(((lmda*lmda*elapsed_time[infinite_indices])/(4*stor_coef*transmissivity)), 80)
-          t2_b <- Rmpfr::mpfr(((lmda*distance)/(2*transmissivity)),80)
+          t2_a <- Rmpfr::mpfr(((lambda*lambda*elapsed_time[infinite_indices])/(4*stor_coef*transmissivity)),  prec = prec)
+          t2_b <- Rmpfr::mpfr(((lambda*distance)/(2*transmissivity)), prec = prec)
           t2 <- base::exp(t2_a + t2_b)
           
           
-          t3_a <- Rmpfr::mpfr((sqrt((lmda*lmda*elapsed_time[infinite_indices])/(4*stor_coef*transmissivity))), 80)
+          t3_a <- Rmpfr::mpfr((sqrt((lambda*lambda*elapsed_time[infinite_indices])/(4*stor_coef*transmissivity))),  prec = prec)
           t3 <- Rmpfr::erfc(t3_a + z)
           #-------------------------------------------------------------------------------
           
@@ -1822,13 +1810,13 @@ calculate_stream_depletions <- function(streams,
                          (4*transmissivity*elapsed_time[all_indices[-c(infinite_indices)]])))
             t1 <- erfc(z)
             
-            t2_a <- ((lmda*lmda*elapsed_time[all_indices[-c(infinite_indices)]])/(4*stor_coef*transmissivity))
-            t2_b <- ((lmda*distance)/(2*transmissivity))
+            t2_a <- ((lambda*lambda*elapsed_time[all_indices[-c(infinite_indices)]])/(4*stor_coef*transmissivity))
+            t2_b <- ((lambda*distance)/(2*transmissivity))
             t2 <- base::exp(t2_a + t2_b)
             
             
             
-            t3_a <- (sqrt((lmda*lmda*elapsed_time[all_indices[-c(infinite_indices)]])/(4*stor_coef*transmissivity)))
+            t3_a <- (sqrt((lambda*lambda*elapsed_time[all_indices[-c(infinite_indices)]])/(4*stor_coef*transmissivity)))
             t3 <- erfc(t3_a + z)
             #-------------------------------------------------------------------------------
             
@@ -1851,53 +1839,7 @@ calculate_stream_depletions <- function(streams,
       
       
       # EXPLANATION
-      # The following matrices are an abstraction of the principle of linear superposition.
-      # In these matrices, each column is a different pumping rate.
-      # This method is necessary as analytical stream depletion functions do not return
-      # the depletion at timestep t, but rather the cumulative depletion between 0 and t.
-      # Therefore the depletion at timestep t is actually f(t) - f(t-1).
-      
-      # The matrix [timestep_mat] shows, as stated, each column as a pumping rate and
-      # each row as the timesteps. This is the platonic ideal of if all pumping rates
-      # started at timestep 1. In this case to get the cumulative depletion at step 1
-      # we would just need to for each pumping rate evaluate f(1)*pump and sum them.
-      
-      # The matrices [starts_mat and stops_mat] represent for each pumping rate (column)
-      # when they start and stop. For example column 1 starts has each row set to 0 (starts)
-      # at time 0 in [start_mat]. These are less physical representations and more structures
-      # that allow us to assemble a physical representation.
-      
-      # The same is true of [pumping_mat], each column is filled with its representative pumping rate
-      # even if it is not active for that timestep
-      
-      # The matrix [starts_actual] assembles when each pumping rate actually starts,
-      # and for how long it has been active. For example columns 1 and 2 may look like
-      # 0 0
-      # 1 0
-      # 2 1
-      # 3 2
-      # ...
-      # showing that at row 4 pumping rate 1 has been active for 3 timesteps, and pumping
-      # rate 2 has been active for 2 timestep.
-      
-      # The matrix [stops_actual] assembles how much time we need to subtract from [starts_actual]
-      # to get the impulse at that timestep only. For example columns 1 and 2 may look like
-      # 0 0
-      # 0 0
-      # 1 0
-      # 2 1
-      # ...
-      # so to get the depletion in timestep 4 for column 1 we can use [starts_actual and stops_actual] to evaluate
-      # f(3) - f(2). Then for column 2 at timestep 4 we can evaluate f(2) - f(1). The sum of depletions at timestep
-      # 4 will then be the sum of these evaluations.
-      
-      
-      # FOR AN EXAMPLE RUN:
-      # THIS WILL BE THE SAME AS A CONTINUOUS PUMPING RATE
-      # timesteps = c(0,1,2,3,4)
-      # start_pumping = c(0,1,2,3)
-      # stop_pumping = c(1,2,3,4)
-      # QW = c(10,10,10,10)
+      # check comments on glover model
       #-------------------------------------------------------------------------------
       start_pumping <- c(0:(length(QW)-1))
       stop_pumping <- c(1:length(QW))
@@ -1950,16 +1892,12 @@ calculate_stream_depletions <- function(streams,
                   distance = distance,
                   stor_coef = stor_coef,
                   transmissivity = transmissivity,
-                  width_r = width_r,
-                  clog_k = clog_k,
-                  clog_bed_thick = clog_bed_thick) -
+                  lambda = lambda) -
            equation(elapsed_time = stops_actual_vec[starts_actual_vec > 0],
                     distance = distance,
                     stor_coef = stor_coef,
                     transmissivity = transmissivity,
-                    width_r = width_r,
-                    clog_k = clog_k,
-                    clog_bed_thick = clog_bed_thick))
+                    lambda = lambda))
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
@@ -2059,14 +1997,9 @@ calculate_stream_depletions <- function(streams,
                                        stream_points_geometry[stream_inds, ])
           all_distances <- c(1:length(all_distances))[order(as.numeric(all_distances))]
           
-          width_r <- as.vector(unlist(st_drop_geometry(stream_points_geometry[stream_inds, width_key])))
-          clog_k <- as.vector(unlist(st_drop_geometry(stream_points_geometry[stream_inds, clog_k_key])))
-          clog_bed_thick <- as.vector(unlist(st_drop_geometry(stream_points_geometry[stream_inds, clog_bed_thick_key])))
-          
-          
-          width_r <- weighted_mean(x = width_r, w = all_distances, na.rm = T)
-          clog_k <- weighted_mean(x = clog_k, w = all_distances, na.rm = T)
-          clog_bed_thick <- weighted_mean(x = clog_bed_thick, w = all_distances, na.rm = T)
+          lambda <- as.vector(unlist(st_drop_geometry(stream_points_geometry[stream_inds, lambda_key])))
+
+          lambda <- weighted_mean(x = lambda, w = all_distances, na.rm = T)
           #-------------------------------------------------------------------------------
           
           #-------------------------------------------------------------------------------
@@ -2076,9 +2009,7 @@ calculate_stream_depletions <- function(streams,
                                                transmissivity = transmissivity,
                                                distance = distance,
                                                QW = pumping[j, ],
-                                               width_r = width_r,
-                                               clog_k = clog_k,
-                                               clog_bed_thick = clog_bed_thick)
+                                               lambda = lambda)
           Q_final <- Q_out*fracs[j]
           #-------------------------------------------------------------------------------
           
@@ -2269,6 +2200,515 @@ calculate_stream_depletions <- function(streams,
   
   
   
+  #===========================================================================================
+  # Uses hunt model to calculate the depletions per reach
+  #===========================================================================================
+  hantush_stream_depletion_calculations <- function(closest_points_per_segment = closest_points_per_segment,
+                                                    stream_points_geometry = stream_points_geometry,
+                                                    reach_impact_frac = reach_impact_frac,
+                                                    wells = wells,
+                                                    transmissivity_key = transmissivity_key,
+                                                    stor_coef_key = stor_coef_key,
+                                                    leakance_key = leakance_key,
+                                                    stream_depletion_output = stream_depletion_output)
+  {
+    #===========================================================================================
+    # Calculates stream depletions assuming a fully penetrating stream with no
+    # clogging layer according to Hantush (1965) https://doi.org/10.1029/JZ070i012p02829
+    # identical to Hunt (1999) model in special case that lambda = 2*(T/L)
+    # by observation of author for leakance values <= 10 this is just a slower glover solution
+    # value of leakance < 1 not acceptable
+    #===========================================================================================
+    hantush_stream_depletion_model <- function(stor_coef,
+                                               transmissivity,
+                                               distance,
+                                               leakance,
+                                               QW)
+    {
+      #-------------------------------------------------------------------------------
+      # hantush model equation in reeves (2008)
+      # https://doi.org/10.3133/ofr20081166
+      # for wide rivers, low aquifer transmissivity, and long simulations
+      # exponential terms can easily be greater than exp(1e5) so uses
+      # Rmpfr approach of streamdepletR to store higher precision numbers
+      # this takes more memory and time so this is only done if infinite
+      # numbers are produced to speed processing
+      equation <- function(stor_coef,
+                           transmissivity,
+                           elapsed_time,
+                           distance,
+                           leakance)
+      {
+        
+        #-------------------------------------------------------------------------------
+        t2_a <- ((transmissivity*elapsed_time)/(stor_coef*leakance*leakance))
+        t2_b <- (distance/leakance)
+        t2 <- base::exp(t2_a + t2_b)
+        
+        infinite_indices <- which(is.infinite(t2))
+        all_indices <- c(1:length(elapsed_time))
+        #-------------------------------------------------------------------------------
+        
+        
+        #-------------------------------------------------------------------------------
+        # check whether exponentials contain any infinities
+        if(length(infinite_indices) == 0){
+          #-------------------------------------------------------------------------------
+          # assemble terms
+          z <- (sqrt((stor_coef * distance* distance)/
+                       (4*transmissivity*elapsed_time)))
+          t1 <- erfc(z)
+          
+          t3_a <- (sqrt((transmissivity*elapsed_time)/(stor_coef*leakance*leakance)))
+          t3 <- erfc(t3_a + z)
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          # give final answer
+          QA <- as.numeric(t1 - (t2*t3))
+          #-------------------------------------------------------------------------------
+        } else {
+          
+          #-------------------------------------------------------------------------------
+          # blank fill
+          QA <- rep(NA, length(elapsed_time))
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          # assemble terms
+          z <- Rmpfr::mpfr((sqrt((stor_coef * distance* distance)/
+                                   (4*transmissivity*elapsed_time[infinite_indices]))),  prec = prec)
+          t1 <- Rmpfr::erfc(z)
+          
+          
+          t2_a <- Rmpfr::mpfr(((transmissivity*elapsed_time[infinite_indices])/(stor_coef*leakance*leakance)),  prec = prec)
+          t2_b <- Rmpfr::mpfr((distance/leakance), prec = prec)
+          t2 <- base::exp(t2_a + t2_b)
+          
+          
+          t3_a <- Rmpfr::mpfr((sqrt((transmissivity*elapsed_time[infinite_indices])/(stor_coef*leakance*leakance))),  prec = prec)
+          t3 <- Rmpfr::erfc(t3_a + z)
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          # fill infinite indices with higher precision numbers
+          QA[infinite_indices] <- as.numeric(t1 - (t2*t3))
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          # are there non-infinity generating terms in base packages that should be calculated
+          if(length(infinite_indices) != length(elapsed_time)){
+            #-------------------------------------------------------------------------------
+            # assemble terms
+            z <- (sqrt((stor_coef * distance* distance)/
+                         (4*transmissivity*elapsed_time[all_indices[-c(infinite_indices)]])))
+            t1 <- erfc(z)
+            
+            t2_a <- ((transmissivity*elapsed_time[all_indices[-c(infinite_indices)]])/(stor_coef*leakance*leakance))
+            t2_b <- (distance/leakance)
+            t2 <- base::exp(t2_a + t2_b)
+            
+            t3_a <- (sqrt((transmissivity*elapsed_time[all_indices[-c(infinite_indices)]])/(stor_coef*leakance*leakance)))
+            t3 <- erfc(t3_a + z)
+            #-------------------------------------------------------------------------------
+            
+            #-------------------------------------------------------------------------------
+            # give final answer
+            QA[all_indices[-c(infinite_indices)]] <- as.numeric(t1 - (t2*t3))
+            #-------------------------------------------------------------------------------
+            
+          }
+          #-------------------------------------------------------------------------------
+        }
+        #-------------------------------------------------------------------------------
+        
+        
+        #-------------------------------------------------------------------------------
+        return(QA)
+        #-------------------------------------------------------------------------------
+      }
+      #-------------------------------------------------------------------------------
+      
+      
+      # EXPLANATION
+      # check comments on glover model
+      #-------------------------------------------------------------------------------
+      start_pumping <- c(0:(length(QW)-1))
+      stop_pumping <- c(1:length(QW))
+      timesteps <- c(0:length(QW)) 
+      
+      
+      timestep_mat <- base::matrix(timesteps,
+                                   nrow = length(timesteps),
+                                   ncol = length(start_pumping))
+      starts_mat <- base::matrix(start_pumping,
+                                 nrow = length(timesteps),
+                                 ncol = length(start_pumping),
+                                 byrow = T)
+      stops_mat <- base::matrix(stop_pumping,
+                                nrow = length(timesteps),
+                                ncol = length(stop_pumping),
+                                byrow = T)
+      pumping_mat <- base::matrix(QW,
+                                  nrow = length(timesteps),
+                                  ncol = length(QW),
+                                  byrow = T)
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # calculate time since each pumping interval starts/stops, bounded at 0
+      starts_actual <- timestep_mat - starts_mat
+      starts_actual[starts_actual < 0] <- 0
+      
+      stops_actual <- timestep_mat - stops_mat
+      stops_actual[stops_actual < 0] <- 0
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # vectorize for calculations
+      starts_actual_vec <- c(starts_actual)
+      stops_actual_vec <- c(stops_actual)
+      pumping_vec <- c(pumping_mat)
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # vector of zeroes that will be filled with the function evaluations
+      depletions_vec <- rep(0, length(starts_actual_vec))
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # evaulate f(t) - f(t-1)
+      depletions_vec[starts_actual_vec > 0] <-
+        pumping_vec[starts_actual_vec > 0] *
+        (equation(elapsed_time = starts_actual_vec[starts_actual_vec > 0],
+                  distance = distance,
+                  stor_coef = stor_coef,
+                  transmissivity = transmissivity,
+                  leakance = leakance) -
+           equation(elapsed_time = stops_actual_vec[starts_actual_vec > 0],
+                    distance = distance,
+                    stor_coef = stor_coef,
+                    transmissivity = transmissivity,
+                    leakance = leakance))
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # return to matrix form for summation
+      depletions_mat <- matrix(depletions_vec,
+                               nrow = length(timesteps),
+                               ncol = length(start_pumping))
+      depletions_mat <- depletions_mat[-c(1), ]
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # sum and return
+      return(base::rowSums(depletions_mat))
+      #-------------------------------------------------------------------------------
+    }
+    #-------------------------------------------------------------------------------
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    #-------------------------------------------------------------------------------
+    # for each reach calculate sum of all depletions
+    depletions_per_reach <- list()
+    for(i in 1:ncol(closest_points_per_segment)){
+      #-------------------------------------------------------------------------------
+      if(suppress_loading_bar == FALSE){
+        #-------------------------------------------------------------------------------
+        # user message
+        loading_bar(iter = i,
+                    total = ncol(closest_points_per_segment),
+                    width = 50,
+                    optional_text = '')
+        #-------------------------------------------------------------------------------
+      }
+      #-------------------------------------------------------------------------------
+      
+      
+      #-------------------------------------------------------------------------------
+      # what are the closest points to each well
+      points <- as.vector(unlist(closest_points_per_segment[, i]))
+      fracs <- as.vector(unlist(reach_impact_frac[ , i]))
+      RN <- st_drop_geometry(stream_points_geometry[points, stream_id_key])
+      RN <- as.vector(unlist(RN))
+      well_indices <- c(1:length(points))
+      rm <- which(is.na(points))
+      #-------------------------------------------------------------------------------
+      
+      #-------------------------------------------------------------------------------
+      # if no wells are associated with the reach then pass
+      if(all(is.na(points) == TRUE) == FALSE){
+        #-------------------------------------------------------------------------------
+        # remove any non-relevant wells from the for loop
+        if(length(rm) > 0){
+          well_indices <- well_indices[-c(rm)]
+        } else {}
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        depletions_per_well <- list()
+        
+        if(str_to_title(stream_depletion_output) == 'Fractional'){
+          pump_frac_per_well <- list()
+          sdf_end <- list()
+          sdf_start <- list()
+          
+          # specific to glover but used here because there is no easy inverse
+          # of the hunt model
+          depletions_end_time <- erfcinv(lagged_depletions_end_time)
+          depletions_start_time <- erfcinv(lagged_depletions_start_time)
+        }
+        counter <- 0
+        for(j in well_indices){
+          #-------------------------------------------------------------------------------
+          # increment list counter
+          counter <- counter + 1
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          # get necessary information
+          distance <- st_distance(wells[j, ],
+                                  stream_points_geometry[points[j], ])
+          distance <- as.numeric(distance)
+          transmissivity <- as.numeric(st_drop_geometry(wells[j, transmissivity_key]))
+          stor_coef <- as.numeric(st_drop_geometry(wells[j, stor_coef_key]))
+          
+          
+          reaches <- as.vector(unlist(st_drop_geometry(stream_points_geometry[,stream_id_key])))
+          stream_inds <- reaches == RN[j]
+          all_distances <- st_distance(wells[j, ],
+                                       stream_points_geometry[stream_inds, ])
+          all_distances <- c(1:length(all_distances))[order(as.numeric(all_distances))]
+          
+          leakance <- as.vector(unlist(st_drop_geometry(stream_points_geometry[stream_inds, leakance_key])))
+          
+          leakance <- weighted_mean(x = leakance, w = all_distances, na.rm = T)
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          # calculate maximum stream depletion potential and
+          # multiply by fraction of depletions of this well apportioned to this reach
+          Q_out <- hantush_stream_depletion_model(stor_coef = stor_coef,
+                                                  transmissivity = transmissivity,
+                                                  distance = distance,
+                                                  QW = pumping[j, ],
+                                                  leakance = leakance)
+          Q_final <- Q_out*fracs[j]
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          depletions_per_well[[counter]] <- Q_final
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          if(str_to_title(stream_depletion_output) == 'Fractional'){
+            pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
+            
+            # specific to glover but used here because there is no easy inverse
+            # of the hunt model
+            sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time)
+            sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time)
+          }
+          #-------------------------------------------------------------------------------
+        }
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        depletions_total <- do.call(cbind, depletions_per_well)
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        if(str_to_title(stream_depletion_output) == 'Fractional'){
+          #-------------------------------------------------------------------------------
+          # fractional depletion method taken from Zipper 2019
+          # https://doi.org/10.1029/2018WR024403 eq 1
+          # sdf taken from barlow and leake 2012 citing Jenkins 1968
+          # https://pubs.usgs.gov/circ/1376/
+          # qs(t)  = Qw * erfc(z)
+          # Qs (90 % depletions) = wanted quantity (time to 90% depletions)
+          # Qs (90%) = Qw * erfc(z99)
+          # erfc(z99) = 0.99
+          # z99 = erfcinv(0.99) = 0.0086
+          # z99 = sqrt(Sd^2/4Tt99) [Zipper 2019; Glover and Balmer 1954]
+          # z99 = d/2(sqrt(Tt99/S))
+          # t99 = (d/2*z99)^2 * S/T
+          # t99 = d^2*S/4Tz99^2
+          
+          # evaluate erfcinv at 0.99 (when 99% has occured) to get function value
+          # evaluate at what time this must have occurred by rearranging equation
+          
+          
+          
+          pump_frac_total <- do.call(cbind, pump_frac_per_well)
+          # take median so if we have a far away well that is close to no other stream
+          # it doesnt bias sdf_avg
+          sdf_end_avg <- round(median(unlist(sdf_end), na.rm = T), 0)
+          sdf_start <- unlist(sdf_start)
+          sdf_start <- sort(sdf_start[is.na(sdf_start) == FALSE])
+          start_weights <- rev(c(1:length(sdf_start)))
+          
+          # take weighted average of sdf starts for conservative net of which pumping
+          # is currently contributing to depletions
+          sdf_start_avg <- round(weighted_mean(x = sdf_start,
+                                               w = start_weights,
+                                               na.rm = TRUE),0)
+          #-------------------------------------------------------------------------------
+          
+          
+          
+          #-------------------------------------------------------------------------------
+          # get the average pumping occuring over the time period that pumping is having the 
+          # maximum impact on streams mean(pump[t-sdf_avg : t])
+          # for hunt model the impacts are felt over SUCH a long time
+          # that even with this conservative approach infinities can still occur
+          # taking global average would prevent this, but wouldnt represent
+          # only the pumping contributing to streamflow
+          sum_pump_frac <- base::rowSums(pump_frac_total)
+          
+          sum_pump_frac_lagged <- sapply(seq_along(sum_pump_frac), function(i) {
+            start <- max(1, i - sdf_end_avg)
+            
+            if(i <= sdf_start_avg){
+              end <- i
+            } else if (i > sdf_start_avg &
+                       i < sdf_start_avg*2){
+              end <- sdf_start_avg
+            } else {
+              end <- i - sdf_start_avg
+            }
+            
+            mean(sum_pump_frac[start:end]) # sum on rolling window based on sdf
+            # lets say i = 30, we might sum between pump_frac[12:27] or something like that
+            # accounts for the fact that pumping at time i will not impact stream for a number of time
+            # steps and that it will continue to effect it for a number of time steps
+          })
+          depletions_per_reach[[i]] <- base::rowSums(depletions_total)/sum_pump_frac_lagged
+          #-------------------------------------------------------------------------------
+          
+        } else {
+          depletions_per_reach[[i]] <- base::rowSums(depletions_total)
+        }
+        #-------------------------------------------------------------------------------
+      } else{
+        depletions_per_reach[[i]] <- rep(0, ncol(pumping)) # reach has no depletions
+      }
+      #-------------------------------------------------------------------------------
+    }
+    #-------------------------------------------------------------------------------
+    
+    
+    
+    
+    #-------------------------------------------------------------------------------
+    # stats
+    start_of_depletions <- lapply(depletions_per_reach, function(x){
+      rle(x)$lengths[1]
+    })
+    start_of_depletions <- unlist(start_of_depletions)
+    rm <- which(start_of_depletions == ncol(pumping))
+    if(length(rm) > 0){
+      start_of_depletions[-c(rm)] # if never started remove
+    } else {}
+    
+    
+    
+    mean_start_of_depletions <- mean(start_of_depletions, na.rm = TRUE)
+    median_start_of_depletions <- median(start_of_depletions, na.rm = TRUE)
+    
+    final_depletions <- lapply(depletions_per_reach, function(x){
+      tail(x, 1)
+    })
+    n_timesteps <- ncol(pumping)
+    mean_final_depletions <- mean(unlist(final_depletions), na.rm = TRUE)
+    median_final_depletions <- median(unlist(final_depletions), na.rm = TRUE)
+    which_max_final_depletions <- which.max(unlist(final_depletions))
+    max_final_depletions <- max(unlist(final_depletions), na.rm = TRUE)
+    #-------------------------------------------------------------------------------
+    
+    
+    
+    #-------------------------------------------------------------------------------
+    # write status to log
+    if(str_to_title(stream_depletion_output) == 'Fractional'){
+      u <-  paste('(decimal [0,1]):')
+    } else {
+      u <- paste0('(',units,'^3','):')
+    }
+    
+    writeLines(text = sprintf('%s %s',
+                              'Mean | Median start of stream depletions (timestep): ',
+                              paste(round(mean_start_of_depletions,2),
+                                    ' | ',
+                                    median_start_of_depletions)),
+               con = log_file)
+    
+    
+    writeLines(text = sprintf('%s %s',
+                              paste('Mean | Median final depletions',u),
+                              paste(round(mean_final_depletions,4),
+                                    '|',
+                                    round(median_final_depletions,4),
+                                    'at timestep (t_final)',
+                                    n_timesteps)),
+               con = log_file)
+    
+    writeLines(text = sprintf('%s %s',
+                              paste('Max final depletions',u),
+                              paste(round(max_final_depletions,4),
+                                    'at timestep (t_final)',
+                                    n_timesteps,
+                                    'for reach',
+                                    which_max_final_depletions)),
+               con = log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    
+    
+    
+    
+    
+    #-------------------------------------------------------------------------------
+    # output
+    depletions_per_reach <- do.call(rbind, depletions_per_reach)
+    return(depletions_per_reach)
+    #-------------------------------------------------------------------------------
+  }
+  #-------------------------------------------------------------------------------
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   ############################################################################################
   ######################################### MAIN FUNCTIONS ###################################
   ############################################################################################
@@ -2315,9 +2755,8 @@ calculate_stream_depletions <- function(streams,
       stream_points_list <- list()
       average_length <- list()
       id_list <- list()
-      width_list <- list()
-      ck_list <- list()
-      cbt_list <- list()
+      lambda_list <- list()
+      leakance_list <- list()
       for(i in 1:nrow(streams)){
         coords <- Extract_SF_Linestring_Vertices(streams$geometry[i])
         stream_points_list[[i]] <- cbind(coords[[2]],
@@ -2326,19 +2765,14 @@ calculate_stream_depletions <- function(streams,
         id_list[[i]] <- rep(st_drop_geometry(streams[i,stream_id_key]),
                             length(coords[[1]]))
         
-        if(is.null(width_key) == FALSE){
-          width_list[[i]] <- rep(st_drop_geometry(streams[i,width_key]),
-                                 length(coords[[1]]))
+        if(is.null(lambda_key) == FALSE){
+          lambda_list[[i]] <- rep(st_drop_geometry(streams[i,lambda_key]),
+                                  length(coords[[1]]))
         }
 
-        if(is.null(clog_k_key) == FALSE){
-          ck_list[[i]] <- rep(st_drop_geometry(streams[i,clog_k_key]),
-                              length(coords[[1]]))
-        }
- 
-        if(is.null(clog_bed_thick_key) == FALSE){
-          cbt_list[[i]] <- rep(st_drop_geometry(streams[i,clog_bed_thick_key]),
-                               length(coords[[1]]))
+        if(is.null(leakance_key) == FALSE){
+          leakance_list[[i]] <- rep(st_drop_geometry(streams[i,leakance_key]),
+                                    length(coords[[1]]))
         }
         
         average_length[[i]] <- length(coords[[1]])
@@ -2362,22 +2796,16 @@ calculate_stream_depletions <- function(streams,
       stream_points_geometry <- cbind(unlist(id_list), stream_points_geometry)
       colnames(stream_points_geometry) <- c(stream_id_key, cnams)
       
-      if(is.null(width_key) == FALSE){
+      if(is.null(lambda_key) == FALSE){
         cnams <- colnames(stream_points_geometry)
-        stream_points_geometry <- cbind(unlist(width_list), stream_points_geometry)
-        colnames(stream_points_geometry) <- c(width_key, cnams)
+        stream_points_geometry <- cbind(unlist(lambda_list), stream_points_geometry)
+        colnames(stream_points_geometry) <- c(lambda_key, cnams)
       }
       
-      if(is.null(clog_k_key) == FALSE){
+      if(is.null(leakance_key) == FALSE){
         cnams <- colnames(stream_points_geometry)
-        stream_points_geometry <- cbind(unlist(ck_list), stream_points_geometry)
-        colnames(stream_points_geometry) <- c(clog_k_key, cnams)
-      }
-      
-      if(is.null(clog_bed_thick_key) == FALSE){
-        cnams <- colnames(stream_points_geometry)
-        stream_points_geometry <- cbind(unlist(cbt_list), stream_points_geometry)
-        colnames(stream_points_geometry) <- c(clog_bed_thick_key, cnams)
+        stream_points_geometry <- cbind(unlist(leakance_list), stream_points_geometry)
+        colnames(stream_points_geometry) <- c(leakance_key, cnams)
       }
       #-------------------------------------------------------------------------------
       
@@ -2666,9 +3094,8 @@ calculate_stream_depletions <- function(streams,
                                                    wells = wells,
                                                    transmissivity_key = transmissivity_key,
                                                    stor_coef_key = stor_coef_key,
-                                                   width_key = width_key,
-                                                   clog_k_key = clog_k_key,
-                                                   clog_bed_thick_key = clog_bed_thick_key,
+                                                   lambda_key = lambda_key,
+                                                   leakance_key = leakance_key,
                                                    analytical_model = analytical_model,
                                                    stream_depletion_output = stream_depletion_output){
     #-------------------------------------------------------------------------------
@@ -2713,10 +3140,21 @@ calculate_stream_depletions <- function(streams,
                                                    wells = wells,
                                                    transmissivity_key = transmissivity_key,
                                                    stor_coef_key = stor_coef_key,
-                                                   width_key = width_key,
-                                                   clog_k_key = clog_k_key,
-                                                   clog_bed_thick_key = clog_bed_thick_key,
+                                                   lambda_key = lambda_key,
                                                    stream_depletion_output = stream_depletion_output)
+      output <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
+                      output)
+      output <- as.data.frame(output)
+      colnames(output) <- c('RN', paste0('T',1:(ncol(output)-1)))
+    } else if (str_to_title(analytical_model) %in% c('Hantush')){
+      output <- hantush_stream_depletion_calculations(closest_points_per_segment = closest_points_per_segment,
+                                                      stream_points_geometry = stream_points_geometry,
+                                                      reach_impact_frac = reach_impact_frac,
+                                                      wells = wells,
+                                                      transmissivity_key = transmissivity_key,
+                                                      stor_coef_key = stor_coef_key,
+                                                      leakance_key = leakance_key,
+                                                      stream_depletion_output = stream_depletion_output)
       output <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
                       output)
       output <- as.data.frame(output)
@@ -2882,16 +3320,10 @@ calculate_stream_depletions <- function(streams,
   
   
   if(str_to_title(analytical_model) == 'Hunt' &
-     (is.null(width_key) == TRUE |
-      !width_key %in% colnames(stream_points_geometry)) |
-     (is.null(clog_k_key) == TRUE |
-      !clog_k_key %in% colnames(stream_points_geometry)) |
-     (is.null(clog_bed_thick_key) == TRUE |
-      !clog_bed_thick_key %in% colnames(stream_points_geometry))){
+     is.null(lambda_key) == TRUE){
     #-------------------------------------------------------------------------------
     writeLines(text = sprintf('%s',
-                              paste0('Identifying column for river width, river bed clogging layer conductivity, or',
-                                     ' clogging layer width in ',
+                              paste0('Identifying column for lambda in ',
                                      str_to_title(analytical_model),
                                      ' model required but not present in streams set')),
                con = log_file)
@@ -2904,12 +3336,90 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
-                'Identifying column for river width, river bed clogging layer conductivity, or\n',
-                'clogging layer width in ',
+                'Identifying column for lambda in ',
                 str_to_title(analytical_model),
                 ' model required but not present in streams set\n',
                 'exiting program ...'))
     #-------------------------------------------------------------------------------
+  }
+  
+  
+  if(str_to_title(analytical_model) == 'Hunt' &
+     is.null(lambda_key) == FALSE){
+    if(!lambda_key %in% colnames(streams) == TRUE){
+      #-------------------------------------------------------------------------------
+      writeLines(text = sprintf('%s',
+                                paste0('Identifying column for lambda in',
+                                       str_to_title(analytical_model),
+                                       ' model required but not present in streams set')),
+                 con = log_file)
+      writeLines(text = sprintf('%s',
+                                'Exiting program ...'),
+                 con = log_file)
+      close(log_file)
+      #-------------------------------------------------------------------------------
+      
+      
+      #-------------------------------------------------------------------------------
+      stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
+                  'Identifying column for lambda in ',
+                  str_to_title(analytical_model),
+                  ' model required but not present in streams set\n',
+                  'exiting program ...'))
+      #-------------------------------------------------------------------------------
+    }
+  }
+    
+  
+  if(str_to_title(analytical_model) == 'Hantush' &
+     is.null(leakance_key) == TRUE){
+    #-------------------------------------------------------------------------------
+    writeLines(text = sprintf('%s',
+                              paste0('Identifying column for leakance in ',
+                                     str_to_title(analytical_model),
+                                     ' model required but not present in streams set')),
+               con = log_file)
+    writeLines(text = sprintf('%s',
+                              'Exiting program ...'),
+               con = log_file)
+    close(log_file)
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
+                'Identifying column for leakance in ',
+                str_to_title(analytical_model),
+                ' model required but not present in streams set\n',
+                'exiting program ...'))
+    #-------------------------------------------------------------------------------
+  }
+  
+  
+  if(str_to_title(analytical_model) == 'Hantush' &
+     is.null(leakance_key) == FALSE){
+    if(!leakance_key %in% colnames(streams) == TRUE){
+      #-------------------------------------------------------------------------------
+      writeLines(text = sprintf('%s',
+                                paste0('Identifying column for leakance in',
+                                       str_to_title(analytical_model),
+                                       ' model required but not present in streams set')),
+                 con = log_file)
+      writeLines(text = sprintf('%s',
+                                'Exiting program ...'),
+                 con = log_file)
+      close(log_file)
+      #-------------------------------------------------------------------------------
+      
+      
+      #-------------------------------------------------------------------------------
+      stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
+                  'Identifying column for leakance in ',
+                  str_to_title(analytical_model),
+                  ' model required but not present in streams set\n',
+                  'exiting program ...'))
+      #-------------------------------------------------------------------------------
+    }
   }
   
   
@@ -3217,9 +3727,8 @@ calculate_stream_depletions <- function(streams,
                                                    wells = wells,
                                                    transmissivity_key = transmissivity_key,
                                                    stor_coef_key = stor_coef_key,
-                                                   width_key = width_key,
-                                                   clog_k_key = clog_k_key,
-                                                   clog_bed_thick_key = clog_bed_thick_key,
+                                                   lambda_key = lambda_key,
+                                                   leakance_key = leakance_key,
                                                    analytical_model = analytical_model,
                                                    stream_depletion_output = stream_depletion_output)
     depletions_by_reach <- output
