@@ -1443,11 +1443,21 @@ calculate_stream_depletions <- function(streams,
                                nrow = length(timesteps),
                                ncol = length(start_pumping))
       depletions_mat <- depletions_mat[-c(1), ]
+      r <- base::rowSums(depletions_mat)
+      rm(depletions_vec)
+      rm(depletions_mat)
+      rm(starts_actual)
+      rm(stops_actual)
+      rm(timestep_mat)
+      rm(starts_mat)
+      rm(stops_mat)
+      rm(pumping_mat)
+      invisible(gc())
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
       # sum and return
-      return(base::rowSums(depletions_mat))
+      return(r)
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
@@ -1923,11 +1933,21 @@ calculate_stream_depletions <- function(streams,
                                nrow = length(timesteps),
                                ncol = length(start_pumping))
       depletions_mat <- depletions_mat[-c(1), ]
+      r <- base::rowSums(depletions_mat)
+      rm(depletions_vec)
+      rm(depletions_mat)
+      rm(starts_actual)
+      rm(stops_actual)
+      rm(timestep_mat)
+      rm(starts_mat)
+      rm(stops_mat)
+      rm(pumping_mat)
+      invisible(gc())
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
       # sum and return
-      return(base::rowSums(depletions_mat))
+      return(r)
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
@@ -2431,11 +2451,21 @@ calculate_stream_depletions <- function(streams,
                                nrow = length(timesteps),
                                ncol = length(start_pumping))
       depletions_mat <- depletions_mat[-c(1), ]
+      r <- base::rowSums(depletions_mat)
+      rm(depletions_vec)
+      rm(depletions_mat)
+      rm(starts_actual)
+      rm(stops_actual)
+      rm(timestep_mat)
+      rm(starts_mat)
+      rm(stops_mat)
+      rm(pumping_mat)
+      invisible(gc())
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
       # sum and return
-      return(base::rowSums(depletions_mat))
+      return(r)
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
