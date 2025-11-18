@@ -1608,7 +1608,7 @@ calculate_stream_depletions <- function(streams,
               end <- i - sdf_start_avg
             }
             
-            if(length(c(start:end)) < sdf_start_avg*2){
+            if(i < sdf_start_avg*2){
               mean(sum_pump_frac[start:end])
             } else if(length(c(start:end)) %% 2 != 0){ # odd number of timesteps
               k <- floor((length(c(start:end))/2))
@@ -1617,8 +1617,8 @@ calculate_stream_depletions <- function(streams,
                             w = w,
                             na.rm = TRUE)
             } else if(length(c(start:end)) %% 2 == 0){ # even number of timesteps
-              k <- (length(c(start:end))/2) - 1
-              w <- c(c(1:k),k+1,c(k:1))
+              k <- (length(c(start:end))/2)
+              w <- c(c(1:k),c(k:1))
               weighted_mean(x = sum_pump_frac[start:end],
                             w = w,
                             na.rm = TRUE)
@@ -2086,7 +2086,8 @@ calculate_stream_depletions <- function(streams,
                                                na.rm = TRUE),0)
           #-------------------------------------------------------------------------------
           
-          
+          print(sdf_start_avg)
+          print(sdf_end_avg)
           
           #-------------------------------------------------------------------------------
           # get the average pumping occuring over the time period that pumping is having the 
@@ -2109,7 +2110,7 @@ calculate_stream_depletions <- function(streams,
               end <- i - sdf_start_avg
             }
             
-            if(length(c(start:end)) < sdf_start_avg*2){
+            if(i < sdf_start_avg*2){
               mean(sum_pump_frac[start:end])
             } else if(length(c(start:end)) %% 2 != 0){ # odd number of timesteps
               k <- floor((length(c(start:end))/2))
@@ -2118,8 +2119,8 @@ calculate_stream_depletions <- function(streams,
                             w = w,
                             na.rm = TRUE)
             } else if(length(c(start:end)) %% 2 == 0){ # even number of timesteps
-              k <- (length(c(start:end))/2) - 1
-              w <- c(c(1:k),k+1,c(k:1))
+              k <- (length(c(start:end))/2)
+              w <- c(c(1:k),c(k:1))
               weighted_mean(x = sum_pump_frac[start:end],
                             w = w,
                             na.rm = TRUE)
@@ -2617,7 +2618,7 @@ calculate_stream_depletions <- function(streams,
               end <- i - sdf_start_avg
             }
             
-            if(length(c(start:end)) < sdf_start_avg*2){
+            if(i < sdf_start_avg*2){
               mean(sum_pump_frac[start:end])
             } else if(length(c(start:end)) %% 2 != 0){ # odd number of timesteps
               k <- floor((length(c(start:end))/2))
@@ -2626,8 +2627,8 @@ calculate_stream_depletions <- function(streams,
                             w = w,
                             na.rm = TRUE)
             } else if(length(c(start:end)) %% 2 == 0){ # even number of timesteps
-              k <- (length(c(start:end))/2) - 1
-              w <- c(c(1:k),k+1,c(k:1))
+              k <- (length(c(start:end))/2)
+              w <- c(c(1:k),c(k:1))
               weighted_mean(x = sum_pump_frac[start:end],
                             w = w,
                             na.rm = TRUE)
