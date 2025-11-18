@@ -1444,14 +1444,10 @@ calculate_stream_depletions <- function(streams,
                                ncol = length(start_pumping))
       depletions_mat <- depletions_mat[-c(1), ]
       r <- base::rowSums(depletions_mat)
-      rm(depletions_vec)
-      rm(depletions_mat)
-      rm(starts_actual)
-      rm(stops_actual)
-      rm(timestep_mat)
-      rm(starts_mat)
-      rm(stops_mat)
-      rm(pumping_mat)
+      rm(list = c('depletions_vec','depletions_mat',
+                  'starts_actual','stops_actual',
+                  'timestep_mat','starts_mat',
+                  'stops_mat','pumping_mat'))
       invisible(gc())
       #-------------------------------------------------------------------------------
       
@@ -1859,6 +1855,7 @@ calculate_stream_depletions <- function(streams,
         
         
         #-------------------------------------------------------------------------------
+        rm(list = c('t1','t2','t2_a','t2_b','t3','t3_a','z'))
         return(QA)
         #-------------------------------------------------------------------------------
       }
@@ -1934,14 +1931,10 @@ calculate_stream_depletions <- function(streams,
                                ncol = length(start_pumping))
       depletions_mat <- depletions_mat[-c(1), ]
       r <- base::rowSums(depletions_mat)
-      rm(depletions_vec)
-      rm(depletions_mat)
-      rm(starts_actual)
-      rm(stops_actual)
-      rm(timestep_mat)
-      rm(starts_mat)
-      rm(stops_mat)
-      rm(pumping_mat)
+      rm(list = c('depletions_vec','depletions_mat',
+                  'starts_actual','stops_actual',
+                  'timestep_mat','starts_mat',
+                  'stops_mat','pumping_mat'))
       invisible(gc())
       #-------------------------------------------------------------------------------
       
@@ -2377,6 +2370,7 @@ calculate_stream_depletions <- function(streams,
         
         
         #-------------------------------------------------------------------------------
+        rm(list = c('t1','t2','t2_a','t2_b','t3','t3_a','z'))
         return(QA)
         #-------------------------------------------------------------------------------
       }
@@ -2452,14 +2446,10 @@ calculate_stream_depletions <- function(streams,
                                ncol = length(start_pumping))
       depletions_mat <- depletions_mat[-c(1), ]
       r <- base::rowSums(depletions_mat)
-      rm(depletions_vec)
-      rm(depletions_mat)
-      rm(starts_actual)
-      rm(stops_actual)
-      rm(timestep_mat)
-      rm(starts_mat)
-      rm(stops_mat)
-      rm(pumping_mat)
+      rm(list = c('depletions_vec','depletions_mat',
+                  'starts_actual','stops_actual',
+                  'timestep_mat','starts_mat',
+                  'stops_mat','pumping_mat'))
       invisible(gc())
       #-------------------------------------------------------------------------------
       
