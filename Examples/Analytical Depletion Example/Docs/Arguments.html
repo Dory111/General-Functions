@@ -359,7 +359,6 @@ display: none;
 
 <div id="variable-documentation" class="section level1">
 <h1>Variable documentation</h1>
-<p><br /> <br /></p>
 <p><b><font size="3">streams</font></b>: <em>sf object</em>, series of
 linestrings describing the streams in the domain. <br /> <br />
 <b><font size="3">streams_are_points</font></b>: <em>boolean</em>
@@ -382,10 +381,10 @@ to. IDs must be sequentially numeric (i.e. 1,2,3,4…). <br /> <br />
 the number of rows equals the number of wells, and the number of columns
 equals the number of timesteps. Each row, column pair contains a pumping
 rate for that timestep. For example, if the timesteps are in days and
-m[1,1] = 100 this is equivalent to a pumping of 100 units per day on
-that day. <br /> <br /> <b><font size="3">subwatersheds</font></b>:
-<em>sf object</em> default <em>NULL</em>, if the proximity criteria is
-set to ‘adjacent’ or ‘adjacent+expanding’ this argument is necessary. It
+m[1,1] = 100 this is equivalent to a pumping of 100 units on day 1 for
+well 1. <br /> <br /> <b><font size="3">subwatersheds</font></b>: <em>sf
+object</em> default <em>NULL</em>, if the proximity criteria is set to
+‘adjacent’ or ‘adjacent+expanding’ this argument is necessary. It
 describes what subwatersheds are to be used in the proximity criteria
 assignment. For each well streams within the subwatershed of the well or
 adjacent subwatersheds are considered to be effected by the wells
@@ -408,24 +407,93 @@ well what fraction of its pumping goes to each stream it effects. The
 sum of the fractions, no matter the argument passed here, will always
 total to 1. Accepts <em>‘inverse distance’, ‘inverse distance squared’,
 ‘web’, ‘web squared’, ‘thiessen polygon’</em>. <br /> <br />
-<b><font size="3">is_raster</font></b>: boolean, describes whether the
-starting_values is a raster or a vector <br /> <br />
-<b><font size="3">grid_dims</font></b>: vector of numeric, described
-in c(rows, columns) the dimensions of the model grid <br /> <br />
-<b><font size="3">null_value</font></b>: describes the value to give
-cells with no intersection with the shape file if no starting values are
-supplied <br /> <br /> <b><font size="3">engulf</font></b>: boolean,
-describes whether model gridcells need to be completly covered by
-shapefile in order for their values to be updated <br /> <br />
-<b><font size="3">partial_fact</font></b>: numeric range 0-100,
-describes above what percentage the cell needs to be covered in order to
-have its values updated if engulf == FALSE <br /> <br />
-<b><font size="3">scale_by_intersected_area</font></b>: boolean, if
-false all cells above partial_fact coverage will be set to the
-replacement value. If true all cells above partial fact will have value
-scaled between starting and replacement value based on how much of cell
-is covered <br /> <br /> <b><font size="3">example</font></b>: boolean,
-if running example code set to true, else set to false <br /> <br /></p>
+<b><font size="3">analytical_model</font></b>: <em>char</em> default
+<em>‘glover’</em>, describes what analytical model to use for the
+calculation of stream depletions. Accepts <em>‘glover’, ‘hunt’,
+‘hantush’</em>. <em>‘Hunt’</em> and <em>‘hantush’</em> models are
+equivalent under the special case that <span class="math inline">\(\lambda = 2\frac{T}{L}\)</span> according to
+Reeves (2008). <br /> <br />
+<b><font size="3">stream_depletion_output</font></b>: <em>char</em>
+default <em>‘volumetric’</em>, describes whether the output of the
+program should be A) the volume of depletions experienced by each reach
+or B) depletions as a fraction of the pumping contributing to those
+depletions. Accepts <em>‘volumetric’ or ‘fractional’</em> <br /> <br />
+<b><font size="3">lagged_depletions_start_time</font></b>:
+<em>numeric</em> default <em>0.01</em>, if
+<em>stream_depletion_output</em> is set to <em>‘fractional’</em> this
+describes where to start summing pumping for the denominator of
+depletions/pumping. As pumping does not immediately effect stream
+depletions, this is saying ‘find the average time at which 1% of
+depletions occur for pumping on this reach’. Pumping is then summed
+between [:t-lagged_depletions_start_time]. Accepts any value between 0
+and 1, however it should not be larger than
+<em>lagged_depletions_end_time</em>.Average time is calculated as a
+weighted average, where wells are weighted by proximity. This prevents a
+sudden increase in proximate well pumping to not enter the denominator
+until an inappropriate time, blowing up the fraction to infinity. <br />
+<br /> <b><font size="3">lagged_depletions_end_time</font></b>:
+<em>numeric</em> default <em>0.99</em>, if
+<em>stream_depletion_output</em> is set to <em>‘fractional’</em> this
+describes where to sum pumping for the denominator of
+depletions/pumping. As pumping does not effect stream depletions
+indefinitely, this is saying ‘find the average time at which 99% of
+depletions occur for pumping on this reach’. Pumping is then summed
+between [t-lagged_depletions_end_time:]. Accepts any value between 0 and
+1, however it should not be smaller than
+<em>lagged_depletions_start_time</em>. Average time is calculated as a
+weighted average, where wells are weighted by proximity. This prevents a
+sudden increase in proximate well pumping to not enter the denominator
+until an inappropriate time, blowing up the fraction to infinity. <br />
+<br /> <b><font size="3">data_out_dir</font></b>: <em>char</em> default
+<em>getwd()</em>, describes where to place the output data. <br /> <br />
+<b><font size="3">diag_out_dir</font></b>: <em>char</em> default
+<em>getwd()</em>, describes where to place the diagnostic data
+(currently limited to log.txt). <br /> <br />
+<b><font size="3">suppress_loading_bar</font></b>: <em>boolean</em>
+default <em>TRUE</em>, describes whether to suppress loading bars in
+console. Value of <em>TRUE</em> does not give loading bars. <br /> <br />
+<b><font size="3">suppress_console_messages</font></b>:
+<em>boolean</em> default <em>TRUE</em>, describes whether to supress
+user messages to console. Value of <em>TRUE</em> does not give console
+messages. <br /> <br /> <b><font size="3">stor_coef_key</font></b>:
+<em>char</em> default <em>‘Stor’</em>, describes the name of the column
+in the well data that stores the storage coefficient data. <br /> <br />
+<b><font size="3">transmissivity_key</font></b>: <em>char</em> default
+<em>‘Tr’</em>, describes the name of the column in the well data that
+stores transmissivity data (<span class="math inline">\(Kb\)</span>).
+<br /> <br /> <b><font size="3">leakance_key</font></b>: <em>char</em>
+default <em>NULL</em>, describes the name of the column in the stream
+data that stores leakance data, where leakance is a product of the
+conductivity of the aquifer multiplied by the streambed clogging layer
+thickness divided by the streambed clogging layer conductivity <span class="math inline">\(\frac{Kb^\text{&#39;}}{K^\text{&#39;}}\)</span>.
+Argument is required if <em>analytical_model</em> is set to
+<em>‘hantush’</em>. Definition taken from Reeves (2008) referencing
+Hantush (1965). <br /> <br /> <b><font size="3">lambda_key</font></b>:
+<em>char</em> default <em>NULL</em>, describes the name of the column in
+the stream data that stores lambda data, where lambda is a product of
+the width of the river multiplied by the conductivity of the streambed
+clogging layer divided by the thickness of the streambed clogging layer
+<span class="math inline">\(w_{r}*\frac{K_{r}}{b_{r}}\)</span>. Argument
+is required if <em>analytical_model</em> is set to <em>‘hunt’</em>.
+Definition taken from Zipper et al. (2019) referencing Hunt (1999).
+<br /> <br /> <b><font size="3">prec</font></b>: <em>numeric</em>
+default <em>80</em>, describes how many bits of precision to use in the
+Rmpfr package when calculating exponential values. Required for the
+<em>‘hunt’</em> and <em>‘hantush’</em> analytical models. Exponential
+values in the <em>‘hunt’</em> and <em>‘hantush’</em> analytical models
+can often return <strong>Inf</strong> using base numerics, use of
+<em>prec</em> in Rmpfr alleviates this. Higher <em>prec</em> values will
+slow down processing. Default taken from streamDepletr package by Zipper
+(2019). <br /> <br /> <br /> <br /></p>
+</div>
+<div id="references" class="section level1">
+<h1>References</h1>
+<p>Glover and Balmer (1954) <a href="https://doi.org/10.1029/TR035i003p00468" class="uri">https://doi.org/10.1029/TR035i003p00468</a> <br /> Hantush
+(1965) <a href="https://doi.org/10.1029/JZ070i012p02829" class="uri">https://doi.org/10.1029/JZ070i012p02829</a> <br /> Hunt
+(1999) <a href="https://doi.org/10.1111/j.1745-6584.1999.tb00962.x" class="uri">https://doi.org/10.1111/j.1745-6584.1999.tb00962.x</a> <br />
+Reeves (2008) <a href="https://doi.org/10.3133/ofr20081166" class="uri">https://doi.org/10.3133/ofr20081166</a> <br /> Zipper (2019)
+<a href="https://cran.r-project.org/web/packages/streamDepletr/index.html" class="uri">https://cran.r-project.org/web/packages/streamDepletr/index.html</a>
+<br /> Zipper et al. (2019) <a href="https://doi.org/10.1029/2018WR024403" class="uri">https://doi.org/10.1029/2018WR024403</a> <br /></p>
 </div>
 
 
