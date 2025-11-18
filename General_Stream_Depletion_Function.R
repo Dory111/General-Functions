@@ -1608,7 +1608,22 @@ calculate_stream_depletions <- function(streams,
               end <- i - sdf_start_avg
             }
             
-            mean(sum_pump_frac[start:end]) # sum on rolling window based on sdf
+            if(length(c(start:end)) < sdf_start_avg*2){
+              mean(sum_pump_frac[start:end])
+            } else if(length(c(start:end)) %% 2 != 0){ # odd number of timesteps
+              k <- floor((length(c(start:end))/2))
+              w <- c(c(1:k),k+1,c(k:1))
+              weighted_mean(x = sum_pump_frac[start:end],
+                            w = w,
+                            na.rm = TRUE)
+            } else if(length(c(start:end)) %% 2 == 0){ # even number of timesteps
+              k <- (length(c(start:end))/2) - 1
+              w <- c(c(1:k),k+1,c(k:1))
+              weighted_mean(x = sum_pump_frac[start:end],
+                            w = w,
+                            na.rm = TRUE)
+            }
+            # sum on rolling window based on sdf
             # lets say i = 30, we might sum between pump_frac[12:27] or something like that
             # accounts for the fact that pumping at time i will not impact stream for a number of time
             # steps and that it will continue to effect it for a number of time steps
@@ -2094,12 +2109,28 @@ calculate_stream_depletions <- function(streams,
               end <- i - sdf_start_avg
             }
             
-            mean(sum_pump_frac[start:end]) # sum on rolling window based on sdf
+            if(length(c(start:end)) < sdf_start_avg*2){
+              mean(sum_pump_frac[start:end])
+            } else if(length(c(start:end)) %% 2 != 0){ # odd number of timesteps
+              k <- floor((length(c(start:end))/2))
+              w <- c(c(1:k),k+1,c(k:1))
+              weighted_mean(x = sum_pump_frac[start:end],
+                            w = w,
+                            na.rm = TRUE)
+            } else if(length(c(start:end)) %% 2 == 0){ # even number of timesteps
+              k <- (length(c(start:end))/2) - 1
+              w <- c(c(1:k),k+1,c(k:1))
+              weighted_mean(x = sum_pump_frac[start:end],
+                            w = w,
+                            na.rm = TRUE)
+            }
+            # sum on rolling window based on sdf
             # lets say i = 30, we might sum between pump_frac[12:27] or something like that
             # accounts for the fact that pumping at time i will not impact stream for a number of time
             # steps and that it will continue to effect it for a number of time steps
           })
           depletions_per_reach[[i]] <- base::rowSums(depletions_total)/sum_pump_frac_lagged
+          #-------------------------------------------------------------------------------
           #-------------------------------------------------------------------------------
           
         } else {
@@ -2586,14 +2617,28 @@ calculate_stream_depletions <- function(streams,
               end <- i - sdf_start_avg
             }
             
-            mean(sum_pump_frac[start:end]) # sum on rolling window based on sdf
+            if(length(c(start:end)) < sdf_start_avg*2){
+              mean(sum_pump_frac[start:end])
+            } else if(length(c(start:end)) %% 2 != 0){ # odd number of timesteps
+              k <- floor((length(c(start:end))/2))
+              w <- c(c(1:k),k+1,c(k:1))
+              weighted_mean(x = sum_pump_frac[start:end],
+                            w = w,
+                            na.rm = TRUE)
+            } else if(length(c(start:end)) %% 2 == 0){ # even number of timesteps
+              k <- (length(c(start:end))/2) - 1
+              w <- c(c(1:k),k+1,c(k:1))
+              weighted_mean(x = sum_pump_frac[start:end],
+                            w = w,
+                            na.rm = TRUE)
+            }
+            # sum on rolling window based on sdf
             # lets say i = 30, we might sum between pump_frac[12:27] or something like that
             # accounts for the fact that pumping at time i will not impact stream for a number of time
             # steps and that it will continue to effect it for a number of time steps
           })
           depletions_per_reach[[i]] <- base::rowSums(depletions_total)/sum_pump_frac_lagged
           #-------------------------------------------------------------------------------
-          
         } else {
           depletions_per_reach[[i]] <- base::rowSums(depletions_total)
         }
