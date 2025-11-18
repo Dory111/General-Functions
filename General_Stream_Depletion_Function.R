@@ -24,8 +24,8 @@ calculate_stream_depletions <- function(streams,
                                         apportionment_criteria = 'inverse distance',
                                         analytical_model = 'glover',
                                         stream_depletion_output = 'volumetric',
-                                        lagged_depletions_end_time = 0.99,
-                                        lagged_depletions_start_time = 0.01,
+                                        lagged_depletions_end_time = 0.90,
+                                        lagged_depletions_start_time = 0.10,
                                         data_out_dir = getwd(),
                                         diag_out_dir = getwd(),
                                         suppress_loading_bar = TRUE,
@@ -1541,8 +1541,8 @@ calculate_stream_depletions <- function(streams,
           if(str_to_title(stream_depletion_output) == 'Fractional'){
             pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
             
-            sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time)
-            sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time)
+            sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time*depletions_end_time)
+            sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time*depletions_start_time)
           }
           #-------------------------------------------------------------------------------
         }
@@ -1599,14 +1599,16 @@ calculate_stream_depletions <- function(streams,
           sum_pump_frac_lagged <- sapply(seq_along(sum_pump_frac), function(i) {
             start <- max(1, i - sdf_end_avg)
             
-            if(i <= sdf_start_avg){
-              end <- i
-            } else if (i > sdf_start_avg &
-                       i < sdf_start_avg*2){
-              end <- sdf_start_avg
-            } else {
-              end <- i - sdf_start_avg
-            }
+            # if(i <= sdf_start_avg){
+            #   end <- i
+            # } else if (i > sdf_start_avg &
+            #            i < sdf_start_avg*2){
+            #   end <- sdf_start_avg
+            # } else {
+            #   end <- i - sdf_start_avg
+            # }
+            
+            end <- i
             
             if(i < sdf_start_avg*2){
               mean(sum_pump_frac[start:end])
@@ -2038,8 +2040,8 @@ calculate_stream_depletions <- function(streams,
             
             # specific to glover but used here because there is no easy inverse
             # of the hunt model
-            sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time)
-            sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time)
+            sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time*depletions_end_time)
+            sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time*depletions_start_time)
           }
           #-------------------------------------------------------------------------------
         }
@@ -2086,8 +2088,7 @@ calculate_stream_depletions <- function(streams,
                                                na.rm = TRUE),0)
           #-------------------------------------------------------------------------------
           
-          print(sdf_start_avg)
-          print(sdf_end_avg)
+
           
           #-------------------------------------------------------------------------------
           # get the average pumping occuring over the time period that pumping is having the 
@@ -2547,8 +2548,8 @@ calculate_stream_depletions <- function(streams,
             
             # specific to glover but used here because there is no easy inverse
             # of the hunt model
-            sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time)
-            sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time)
+            sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time*depletions_end_time)
+            sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time*depletions_start_time)
           }
           #-------------------------------------------------------------------------------
         }
