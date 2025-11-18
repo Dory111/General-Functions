@@ -417,29 +417,34 @@ Reeves (2008). <br /> <br />
 default <em>‘volumetric’</em>, describes whether the output of the
 program should be A) the volume of depletions experienced by each reach
 or B) depletions as a fraction of the pumping contributing to those
-depletions. Accepts <em>‘volumetric’ or ‘fractional’</em> <br /> <br />
+depletions. Accepts <em>‘volumetric’ or ‘fractional’</em>.
+<strong>WARNING:</strong> <em>‘fractional’</em> works best under
+relatively constant pumping rates. Though the program attempts to
+correct for this, depletions occuring without pumping, due to travel
+time of pressure signal from well pumping, can easily cause a blow up to
+infinity. <br /> <br />
 <b><font size="3">lagged_depletions_start_time</font></b>:
-<em>numeric</em> default <em>0.01</em>, if
+<em>numeric</em> default <em>0.1</em>, if
 <em>stream_depletion_output</em> is set to <em>‘fractional’</em> this
 describes where to start summing pumping for the denominator of
 depletions/pumping. As pumping does not immediately effect stream
 depletions, this is saying ‘find the average time at which 1% of
 depletions occur for pumping on this reach’. Pumping is then summed
-between [:t-lagged_depletions_start_time]. Accepts any value between 0
-and 1, however it should not be larger than
+between [:t-lagged_depletions_start_time]. Accepts any value between
+0.01 and 0.99, however it should not be larger than
 <em>lagged_depletions_end_time</em>.Average time is calculated as a
 weighted average, where wells are weighted by proximity. This prevents a
 sudden increase in proximate well pumping to not enter the denominator
 until an inappropriate time, blowing up the fraction to infinity. <br />
 <br /> <b><font size="3">lagged_depletions_end_time</font></b>:
-<em>numeric</em> default <em>0.99</em>, if
+<em>numeric</em> default <em>0.90</em>, if
 <em>stream_depletion_output</em> is set to <em>‘fractional’</em> this
 describes where to sum pumping for the denominator of
 depletions/pumping. As pumping does not effect stream depletions
 indefinitely, this is saying ‘find the average time at which 99% of
 depletions occur for pumping on this reach’. Pumping is then summed
-between [t-lagged_depletions_end_time:]. Accepts any value between 0 and
-1, however it should not be smaller than
+between [t-lagged_depletions_end_time:]. Accepts any value between 0.01
+and 0.99, however it should not be smaller than
 <em>lagged_depletions_start_time</em>. Average time is calculated as a
 weighted average, where wells are weighted by proximity. This prevents a
 sudden increase in proximate well pumping to not enter the denominator
