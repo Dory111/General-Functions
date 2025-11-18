@@ -1,0 +1,86 @@
+---
+title: "Arguments"
+author: "Christopher Dory"
+date: "2025-11-18"
+output: html_document
+---
+```{r setup, include=FALSE,  message = FALSE, error = FALSE, warning = FALSE}
+## IMPORTANT 
+## POINT THIS TO YOUR DIRECTORY
+knitr::opts_knit$set(echo = TRUE,
+                      root.dir = getwd())
+```
+
+```{r setup2, include=FALSE, message = FALSE, error = FALSE, warning = FALSE}
+#===========================================================================================
+# Requirements Load
+#===========================================================================================
+library(sf)
+library(sp)
+library(raster)
+library(colorspace)
+library(terra)
+library(lubridate)
+library(stringr)
+library(here)
+library(DT)
+options(scipen = 100)
+```
+
+# Variable documentation
+
+<br/>
+<br/>
+
+<b><font size = "3">streams</font></b>: *sf object*, series of linestrings describing the streams in the domain.
+<br/>
+<br/>
+<b><font size = "3">streams_are_points</font></b>: *boolean* default *FALSE*, describes whether the streams being passed are linestrings, in which the program will transform them to points for calculations, or whether they are pre-processed by the user to points. An argument of *FALSE* equates to telling the program you are passing linestrings.
+<br/>
+<br/>
+<b><font size = "3">stream_id_key</font></b>: *char* default *NULL*, if streams are already points this argument describes an ID column in that point set. The ID describes what reach each point belongs to. IDs must be sequentially numeric (i.e. 1,2,3,4...).
+<br/>
+<br/>
+<b><font size = "3">wells</font></b>: *sf object*, series of points that represent the wells in the domain.
+<br/>
+<br/>
+<b><font size = "3">wells_id_key</font></b>: *char* default *NULL*, describes a column in that point set where an ID can be found in the wells data. The ID describes what reach each point belongs to. IDs must be sequentially numeric (i.e. 1,2,3,4...).
+<br/>
+<br/>
+<b><font size = "3">pumping</font></b>: *matrix*, a matrix where the number of rows equals the number of wells, and the number of columns equals the number of timesteps. Each row, column pair contains a pumping rate for that timestep. For example, if the timesteps are in days and m[1,1] = 100 this is equivalent to a pumping of 100 units per day on that day.
+<br/>
+<br/>
+<b><font size = "3">subwatersheds</font></b>: *sf object* default *NULL*, if the proximity criteria is set to 'adjacent' or 'adjacent+expanding' this argument is necessary. It describes what subwatersheds are to be used in the proximity criteria assignment. For each well streams within the subwatershed of the well or adjacent subwatersheds are considered to be effected by the wells pumping.
+<br/>
+<br/>
+<b><font size = "3">influence_radius</font></b>: *numeric* default *NULL*, if the proximity criteria is set to 'local area', 'expanding', or 'adjacent+expanding' this argument is necessary. It describes the radius around each well that they influence. Streams within this radius are considered to be effected by the wells pumping.
+<br/>
+<br/>
+<b><font size = "3">proximity_criteria</font></b>: *char* default *'local area'*, describes what proximity criteria to use when assigning what streams are effected by the pumping of a given well. Can take arguments of *'local area', 'whole domain', 'adjacent', 'adjacent+expanding', 'expanding'*. In this program *expanding* and *local area* are equivalent, however the number passed to *influence_radius* by the user should necessarily be different given what they represent.
+<br/>
+<br/>
+<b><font size = "3">apportionment_criteria</font></b>: *char* default *'inverse distance'*, describes how to assign for each well what fraction of its pumping goes to each stream it effects. The sum of the fractions, no matter the argument passed here, will always total to 1. Accepts *'inverse distance', 'inverse distance squared', 'web', 'web squared', 'thiessen polygon'*.
+<br/>
+<br/>
+<b><font size = "3">analytical_model</font></b>: *char* default *'glover'*, describes what analytical model to use for the calculation of stream depletions. Accepts *'glover', 'hunt', 'hantush'*.
+<br/>
+<br/>
+<b><font size = "3">grid_dims</font></b>: vector of numeric, described in c(rows, columns) the dimensions of the model grid
+<br/>
+<br/>
+<b><font size = "3">null_value</font></b>: describes the value to give cells with no intersection with the shape file if no starting values are supplied
+<br/>
+<br/>
+<b><font size = "3">engulf</font></b>: boolean, describes whether model gridcells need to be completly covered by shapefile in order for their values to be updated
+<br/>
+<br/>
+<b><font size = "3">partial_fact</font></b>: numeric range 0-100, describes above what percentage the cell needs to be covered in order to have its values updated if engulf == FALSE
+<br/>
+<br/>
+<b><font size = "3">scale_by_intersected_area</font></b>: boolean, if false all cells above partial_fact coverage will be set to the replacement value. If true all cells above partial fact will have value scaled between starting and replacement value based on how much of cell is covered
+<br/>
+<br/>
+<b><font size = "3">example</font></b>: boolean, if running example code set to true, else set to false
+<br/>
+<br/>
+
