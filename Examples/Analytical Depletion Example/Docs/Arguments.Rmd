@@ -62,6 +62,9 @@ options(scipen = 100)
 <b><font size = "3">analytical_model</font></b>: *char* default *'glover'*, describes what analytical model to use for the calculation of stream depletions. Accepts *'glover', 'hunt', 'hantush'*. *'Hunt'* and *'hantush'* models are equivalent under the special case that $\lambda = 2\frac{T}{L}$ according to Reeves (2008).
 <br/>
 <br/>
+<b><font size = "3">depletion_potential_criteria</font></b>: *char* default *'fractional'*, describes what how to average fractional depletions. Accepts *'global', 'fractional', 'fractional+pumping'*. *'Global'* is equivalent to saying at each timestep take the average of depletion potential for all wells effecting reach 'r'. *'Fractional'* takes a weighted average by frac/mean(frac) from wells 'w' to reach 'r'. *'Fractional+pumping'* takes a weighted average by (pumping * frac)/mean(pumping * frac) from wells 'w' to reach 'r'.
+<br/>
+<br/>
 <b><font size = "3">data_out_dir</font></b>: *char* default *getwd()*, describes where to place the output data.
 <br/>
 <br/>

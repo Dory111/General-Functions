@@ -23,7 +23,7 @@ calculate_stream_depletions <- function(streams,
                                         proximity_criteria = 'whole domain',
                                         apportionment_criteria = 'inverse distance',
                                         analytical_model = 'glover',
-                                        depletion_potential_criteria = 'global',
+                                        depletion_potential_criteria = 'fractional',
                                         data_out_dir = getwd(),
                                         diag_out_dir = getwd(),
                                         suppress_loading_bar = TRUE,
@@ -84,31 +84,10 @@ calculate_stream_depletions <- function(streams,
   #===========================================================================================
   calculate_depletion_potential <- function(depletion_potential_criteria = depletion_potential_criteria,
                                             depletions_potential_per_well_total = depletions_potential_per_well_total,
-                                            distances = distances)
+                                            distances = distances,
+                                            fracs = fracs,
+                                            pumping = pumping)
   {
-    # ------------------------------------------------------------------------------------------------
-    if(str_to_title(depletion_potential_criteria) == 'Pumping'){
-      average_fractional_depletions <- sapply(c(1:ncol(pumping)), function(k){
-        
-        w <- (pumping[,k] * fracs)/mean(pumping[,k] * fracs, na.rm = T)
-        rm <- which(is.na(w) == TRUE &
-                      is.nan(w) == FALSE)
-        if(length(rm) > 0){
-          w <- w[-c(rm)]
-        } else {}
-        
-        if(all(is.nan(w)) == TRUE){
-          w <- rep(1,length(w))
-        }
-        
-        x <- depletions_potential_per_well_total[k,]
-        x <- x[is.na(x) == FALSE]
-        weighted_mean(x = x,
-                      w = w, na.rm = T)
-      })
-    } 
-    # ------------------------------------------------------------------------------------------------
-
     # ------------------------------------------------------------------------------------------------
     if(str_to_title(depletion_potential_criteria) == 'Global'){
       average_fractional_depletions <- base::rowMeans(depletions_potential_per_well_total, na.rm = TRUE)
@@ -140,6 +119,28 @@ calculate_stream_depletions <- function(streams,
     } 
     # ------------------------------------------------------------------------------------------------
     
+    # ------------------------------------------------------------------------------------------------
+    if(str_to_title(depletion_potential_criteria) == 'Fractional+Pumping'){
+      average_fractional_depletions <- sapply(c(1:ncol(pumping)), function(k){
+        
+        w <- (pumping[,k] * fracs)/mean(pumping[,k] * fracs, na.rm = T)
+        rm <- which(is.na(w) == TRUE &
+                      is.nan(w) == FALSE)
+        if(length(rm) > 0){
+          w <- w[-c(rm)]
+        } else {}
+        
+        if(all(is.nan(w)) == TRUE){
+          w <- rep(1,length(w))
+        }
+        
+        x <- depletions_potential_per_well_total[k,]
+        x <- x[is.na(x) == FALSE]
+        weighted_mean(x = x,
+                      w = w, na.rm = T)
+      })
+    } 
+    # ------------------------------------------------------------------------------------------------
     
     # ------------------------------------------------------------------------------------------------
     if(str_to_title(depletion_potential_criteria) == 'Distance'){
@@ -167,16 +168,45 @@ calculate_stream_depletions <- function(streams,
     
     
     # ------------------------------------------------------------------------------------------------
-    if(str_to_title(depletion_potential_criteria) == 'Distance+Pumping'){
+    if(str_to_title(depletion_potential_criteria) == 'Fractional+Distance'){
       
       average_fractional_depletions <- sapply(c(1:ncol(pumping)), function(k){
         
-        w <- (pumping[,k] * fracs * (1/unlist(distances)))/mean(pumping[,k] * fracs * (1/unlist(distances)), na.rm = T)
+        w <- (fracs)/mean(fracs, na.rm = T)
         rm <- which(is.na(w) == TRUE &
                       is.nan(w) == FALSE)
         if(length(rm) > 0){
-          w <- w[-c(rm)]
-        } else {}
+          w <- w[-c(rm)] * 1/(unlist(distances)*unlist(distances))
+        } else {
+          w <- w * 1/unlist(distances)
+        }
+        
+        if(all(is.nan(w)) == TRUE){
+          w <- rep(1,length(w))
+        }
+        
+        x <- depletions_potential_per_well_total[k,]
+        x <- x[is.na(x) == FALSE]
+        weighted_mean(x = x,
+                      w = w, na.rm = T)
+      })
+      
+    }
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    if(str_to_title(depletion_potential_criteria) == 'All'){
+      
+      average_fractional_depletions <- sapply(c(1:ncol(pumping)), function(k){
+        
+        w <- (pumping[,k] * fracs)/mean(pumping[,k] * fracs, na.rm = T)
+        rm <- which(is.na(w) == TRUE &
+                      is.nan(w) == FALSE)
+        if(length(rm) > 0){
+          w <- w[-c(rm)] * 1/(unlist(distances)*unlist(distances))
+        } else {
+          w <- w * 1/unlist(distances)
+        }
         
         if(all(is.nan(w)) == TRUE){
           w <- rep(1,length(w))
@@ -1695,7 +1725,9 @@ calculate_stream_depletions <- function(streams,
         
         average_fractional_depletions <- calculate_depletion_potential(depletion_potential_criteria = depletion_potential_criteria,
                                                                        depletions_potential_per_well_total = depletions_potential_per_well_total,
-                                                                       distances = distances)
+                                                                       distances = distances,
+                                                                       fracs = fracs,
+                                                                       pumping = pumping)
         
         depletions_potential_per_reach[[i]] <- average_fractional_depletions
         depletions_per_reach[[i]] <- base::rowSums(depletions_total)
@@ -2143,7 +2175,9 @@ calculate_stream_depletions <- function(streams,
         
         average_fractional_depletions <- calculate_depletion_potential(depletion_potential_criteria = depletion_potential_criteria,
                                                                        depletions_potential_per_well_total = depletions_potential_per_well_total,
-                                                                       distances = distances)
+                                                                       distances = distances,
+                                                                       fracs = fracs,
+                                                                       pumping = pumping)
         
         depletions_potential_per_reach[[i]] <- average_fractional_depletions
         depletions_per_reach[[i]] <- base::rowSums(depletions_total)
@@ -2600,7 +2634,9 @@ calculate_stream_depletions <- function(streams,
         
         average_fractional_depletions <- calculate_depletion_potential(depletion_potential_criteria = depletion_potential_criteria,
                                                                        depletions_potential_per_well_total = depletions_potential_per_well_total,
-                                                                       distances = distances)
+                                                                       distances = distances,
+                                                                       fracs = fracs,
+                                                                       pumping = pumping)
         
         depletions_potential_per_reach[[i]] <- average_fractional_depletions
         depletions_per_reach[[i]] <- base::rowSums(depletions_total)
@@ -3726,7 +3762,7 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     # user message
     if(suppress_console_messages == FALSE){
-      cat('\nCalculating depletions per well: Step (3/3)')
+      cat('\nCalculating depletions per reach: Step (3/3)')
     }
     #-------------------------------------------------------------------------------
     
