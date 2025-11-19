@@ -416,17 +416,17 @@ Reeves (2008). <br /> <br />
 <b><font size="3">depletion_potential_criteria</font></b>:
 <em>char</em> default <em>‘fractional’</em>, describes what how to
 average fractional depletions. Accepts <em>‘global’, ‘fractional’,
-‘fractional+pumping’</em>. <em>‘Global’</em> is equivalent to saying at
-each timestep take the average of depletion potential for all wells
-effecting reach ‘r’. <em>‘Fractional’</em> takes a weighted average by
-frac/mean(frac) from wells ‘w’ to reach ‘r’.
-<em>‘Fractional+pumping’</em> takes a weighted average by (pumping *
-frac)/mean(pumping * frac) from wells ‘w’ to reach ‘r’. <br /> <br />
-<b><font size="3">data_out_dir</font></b>: <em>char</em> default
-<em>getwd()</em>, describes where to place the output data. <br /> <br />
-<b><font size="3">diag_out_dir</font></b>: <em>char</em> default
-<em>getwd()</em>, describes where to place the diagnostic data
-(currently limited to log.txt). <br /> <br />
+‘fractional+pumping’</em>,<em>‘distance’</em>,<em>‘fractional+distance’</em>,<em>‘all’</em>.
+<em>‘Global’</em> is equivalent to saying at each timestep take the
+average of depletion potential for all wells effecting reach ‘r’.
+<em>‘Fractional’</em> takes a weighted average by frac/mean(frac) from
+wells ‘w’ to reach ‘r’. <em>‘Fractional+pumping’</em> takes a weighted
+average by (pumping * frac)/mean(pumping * frac) from wells ‘w’ to reach
+‘r’. etc.. <br /> <br /> <b><font size="3">data_out_dir</font></b>:
+<em>char</em> default <em>getwd()</em>, describes where to place the
+output data. <br /> <br /> <b><font size="3">diag_out_dir</font></b>:
+<em>char</em> default <em>getwd()</em>, describes where to place the
+diagnostic data (currently limited to log.txt). <br /> <br />
 <b><font size="3">suppress_loading_bar</font></b>: <em>boolean</em>
 default <em>TRUE</em>, describes whether to suppress loading bars in
 console. Value of <em>TRUE</em> does not give loading bars. <br /> <br />
