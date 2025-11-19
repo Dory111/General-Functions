@@ -23,9 +23,6 @@ calculate_stream_depletions <- function(streams,
                                         proximity_criteria = 'whole domain',
                                         apportionment_criteria = 'inverse distance',
                                         analytical_model = 'glover',
-                                        stream_depletion_output = 'volumetric',
-                                        lagged_depletions_end_time = 0.99,
-                                        lagged_depletions_start_time = 0.01,
                                         data_out_dir = getwd(),
                                         diag_out_dir = getwd(),
                                         suppress_loading_bar = TRUE,
@@ -94,7 +91,7 @@ calculate_stream_depletions <- function(streams,
     }
   }
   # ------------------------------------------------------------------------------------------------
-  
+
   #===========================================================================================
   # weighted mean function to avoid loading the stats library
   #===========================================================================================
@@ -1302,8 +1299,7 @@ calculate_stream_depletions <- function(streams,
                                                    reach_impact_frac = reach_impact_frac,
                                                    wells = wells,
                                                    transmissivity_key = transmissivity_key,
-                                                   stor_coef_key = stor_coef_key,
-                                                   stream_depletion_output = stream_depletion_output)
+                                                   stor_coef_key = stor_coef_key)
   {
     #===========================================================================================
     # Calculates stream depletions assuming a fully penetrating stream with no
@@ -1421,6 +1417,7 @@ calculate_stream_depletions <- function(streams,
       #-------------------------------------------------------------------------------
       # vector of zeroes that will be filled with the function evaluations
       depletions_vec <- rep(0, length(starts_actual_vec))
+      fractional_vec <- rep(0, length(starts_actual_vec))
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
@@ -1435,19 +1432,51 @@ calculate_stream_depletions <- function(streams,
                     distance = distance,
                     stor_coef = stor_coef,
                     transmissivity = transmissivity))
-      #-------------------------------------------------------------------------------
       
-      #-------------------------------------------------------------------------------
-      # return to matrix form for summation
       depletions_mat <- matrix(depletions_vec,
                                nrow = length(timesteps),
                                ncol = length(start_pumping))
       depletions_mat <- depletions_mat[-c(1), ]
+      depletions <- base::rowSums(depletions_mat)
+        
+        
+        
+        
+        
+
+      fractional_vec[starts_actual_vec > 0] <-
+        (equation(elapsed_time = starts_actual_vec[starts_actual_vec > 0],
+                  distance = distance,
+                  stor_coef = stor_coef,
+                  transmissivity = transmissivity) -
+           equation(elapsed_time = stops_actual_vec[starts_actual_vec > 0],
+                    distance = distance,
+                    stor_coef = stor_coef,
+                    transmissivity = transmissivity))
+        
+      fractional_mat <- matrix(fractional_vec,
+                               nrow = length(timesteps),
+                               ncol = length(start_pumping))
+      fractional_mat <- fractional_mat[-c(1), ]
+      fractions <- base::rowSums(fractional_mat)
       #-------------------------------------------------------------------------------
       
+      
+      #-------------------------------------------------------------------------------
+      # memory allocation
+      rm(list = c('depletions_vec','depletions_mat',
+                  'fractional_mat','fractional_vec',
+                  'starts_actual','stops_actual',
+                  'timestep_mat','starts_mat',
+                  'stops_mat','pumping_mat'))
+      invisible(gc())
+      #-------------------------------------------------------------------------------
+
+
       #-------------------------------------------------------------------------------
       # sum and return
-      return(base::rowSums(depletions_mat))
+      return(list(depletions,
+                  fractions))
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
@@ -1465,6 +1494,8 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     # for each reach calculate sum of all depletions
     depletions_per_reach <- list()
+    depletions_potential_per_reach <- list()
+    pump_frac_per_reach <- list()
     for(i in 1:ncol(closest_points_per_segment)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -1499,17 +1530,8 @@ calculate_stream_depletions <- function(streams,
         
         #-------------------------------------------------------------------------------
         depletions_per_well <- list()
-
-        
-        if(str_to_title(stream_depletion_output) == 'Fractional'){
-          pump_frac_per_well <- list()
-          sdf_end <- list()
-          sdf_start <- list()
-          
-          depletions_end_time <- erfcinv(lagged_depletions_end_time)
-          depletions_start_time <- erfcinv(lagged_depletions_start_time)
-        }
-
+        depletions_potential_per_well <- list()
+        pump_frac_per_well <- list()
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -1533,117 +1555,58 @@ calculate_stream_depletions <- function(streams,
                                                  transmissivity = transmissivity,
                                                  distance = distance,
                                                  QW = pumping[j, ])
-          Q_final <- Q_out*fracs[j]
+          Q_final <- Q_out[[1]]*fracs[j]
+          Q_fraction <- Q_out[[2]]
           #-------------------------------------------------------------------------------
           
           #-------------------------------------------------------------------------------
           depletions_per_well[[counter]] <- Q_final
-          if(str_to_title(stream_depletion_output) == 'Fractional'){
-            pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
-            
-            sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time)
-            sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time)
-          }
+          depletions_potential_per_well[[counter]] <- Q_fraction
+          pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
           #-------------------------------------------------------------------------------
         }
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
         depletions_total <- do.call(cbind, depletions_per_well)
+        pump_frac_per_well_total <- do.call(cbind, pump_frac_per_well)
+        depletions_potential_per_well_total <- do.call(cbind, depletions_potential_per_well)
         #-------------------------------------------------------------------------------
         
-        #-------------------------------------------------------------------------------
-        if(str_to_title(stream_depletion_output) == 'Fractional'){
-          #-------------------------------------------------------------------------------
-          # fractional depletion method taken from Zipper 2019
-          # https://doi.org/10.1029/2018WR024403 eq 1
-          # sdf taken from barlow and leake 2012 citing Jenkins 1968
-          # https://pubs.usgs.gov/circ/1376/
-          # qs(t)  = Qw * erfc(z)
-          # Qs (90 % depletions) = wanted quantity (time to 90% depletions)
-          # Qs (90%) = Qw * erfc(z99)
-          # erfc(z99) = 0.99
-          # z99 = erfcinv(0.99) = 0.0086
-          # z99 = sqrt(Sd^2/4Tt99) [Zipper 2019; Glover and Balmer 1954]
-          # z99 = d/2(sqrt(Tt99/S))
-          # t99 = (d/2*z99)^2 * S/T
-          # t99 = d^2*S/4Tz99^2
-          
-          # evaluate erfcinv at 0.99 (when 99% has occured) to get function value
-          # evaluate at what time this must have occurred by rearranging equation
-          
-          
-          
-          pump_frac_total <- do.call(cbind, pump_frac_per_well)
-          # take median so if we have a far away well that is close to no other stream
-          # it doesnt bias sdf_avg
-          sdf_end_avg <- round(median(unlist(sdf_end), na.rm = T), 0)
-          sdf_start <- unlist(sdf_start)
-          sdf_start <- sort(sdf_start[is.na(sdf_start) == FALSE])
-          start_weights <- rev(c(1:length(sdf_start)))
-          
-          # take weighted average of sdf starts for conservative net of which pumping
-          # is currently contributing to depletions
-          sdf_start_avg <- round(weighted_mean(x = sdf_start,
-                                               w = start_weights,
-                                               na.rm = TRUE),0)
-          #-------------------------------------------------------------------------------
-          
-          
-          
-          #-------------------------------------------------------------------------------
-          # get the average pumping occuring over the time period that pumping is having the 
-          # maximum impact on streams mean(pump[t-sdf_avg : t])
-          sum_pump_frac <- base::rowSums(pump_frac_total)
-          
-          sum_pump_frac_lagged <- sapply(seq_along(sum_pump_frac), function(i) {
-            start <- max(1, i - sdf_end_avg)
-            
-            if(i <= sdf_start_avg){
-              end <- i
-            } else if (i > sdf_start_avg &
-                       i < sdf_start_avg*2){
-              end <- sdf_start_avg
-            } else {
-              end <- i - sdf_start_avg
-            }
-            
-            if(length(c(start:end)) < sdf_start_avg*2){
-              mean(sum_pump_frac[start:end])
-            } else if(length(c(start:end)) %% 2 != 0){ # odd number of timesteps
-              k <- floor((length(c(start:end))/2))
-              w <- c(c(1:k),k+1,c(k:1))
-              weighted_mean(x = sum_pump_frac[start:end],
-                            w = w,
-                            na.rm = TRUE)
-            } else if(length(c(start:end)) %% 2 == 0){ # even number of timesteps
-              k <- (length(c(start:end))/2) - 1
-              w <- c(c(1:k),k+1,c(k:1))
-              weighted_mean(x = sum_pump_frac[start:end],
-                            w = w,
-                            na.rm = TRUE)
-            }
-            # sum on rolling window based on sdf
-            # lets say i = 30, we might sum between pump_frac[12:27] or something like that
-            # accounts for the fact that pumping at time i will not impact stream for a number of time
-            # steps and that it will continue to effect it for a number of time steps
-          })
-          depletions_per_reach[[i]] <- base::rowSums(depletions_total)/sum_pump_frac_lagged
-          #-------------------------------------------------------------------------------
+        average_fractional_depletions <- sapply(c(1:ncol(pumping)), function(k){
 
-        } else {
-          depletions_per_reach[[i]] <- base::rowSums(depletions_total)
-        }
-        #-------------------------------------------------------------------------------
+          w <- (pumping[,k] * fracs)/mean(pumping[,k] * fracs, na.rm = T)
+          rm <- which(is.na(w) == TRUE &
+                        is.nan(w) == FALSE)
+          if(length(rm) > 0){
+            w <- w[-c(rm)]
+          } else {}
+          
+          if(all(is.nan(w)) == TRUE){
+            w <- rep(1,length(w))
+          }
+          
+          x <- depletions_potential_per_well_total[k,]
+          x <- x[is.na(x) == FALSE]
+          weighted_mean(x = x,
+                        w = w, na.rm = T)
+        })
+        
+        depletions_potential_per_reach[[i]] <- average_fractional_depletions
+        depletions_per_reach[[i]] <- base::rowSums(depletions_total)
+        pump_frac_per_reach[[i]] <- base::rowSums(pump_frac_per_well_total)
+        
+        
       } else{
         depletions_per_reach[[i]] <- rep(0, ncol(pumping)) # reach has no depletions
+        pump_frac_per_reach[[i]] <- rep(0, ncol(pumping))
+        depletions_potential_per_reach[[i]] <- rep(0, ncol(pumping))
       }
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
     
-    
-    
+
     
     #-------------------------------------------------------------------------------
     # stats
@@ -1675,11 +1638,8 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # write status to log
-    if(str_to_title(stream_depletion_output) == 'Fractional'){
-      u <-  paste('(decimal [0,1]):')
-    } else {
-      u <- paste0('(',units,'^3','):')
-    }
+    u <- paste0('(',units,'^3','):')
+
     
     writeLines(text = sprintf('%s %s',
                               'Mean | Median start of stream depletions (timestep): ',
@@ -1709,11 +1669,15 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     
     
-    
+
     #-------------------------------------------------------------------------------
     # output
+    depletions_potential_per_reach <- do.call(rbind, depletions_potential_per_reach)
     depletions_per_reach <- do.call(rbind, depletions_per_reach)
-    return(depletions_per_reach)
+    pump_frac_per_reach <- do.call(rbind, pump_frac_per_reach)
+    return(list(depletions_per_reach,
+                depletions_potential_per_reach,
+                pump_frac_per_reach))
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
@@ -1733,8 +1697,7 @@ calculate_stream_depletions <- function(streams,
                                                  wells = wells,
                                                  transmissivity_key = transmissivity_key,
                                                  stor_coef_key = stor_coef_key,
-                                                 lambda_key,
-                                                 stream_depletion_output = stream_depletion_output)
+                                                 lambda_key = lambda_key)
   {
     #===========================================================================================
     # Calculates stream depletions assuming a fully penetrating stream with no
@@ -1847,6 +1810,7 @@ calculate_stream_depletions <- function(streams,
         
         
         #-------------------------------------------------------------------------------
+        rm(list = c('t1','t2','t2_a','t2_b','t3','t3_a','z'))
         return(QA)
         #-------------------------------------------------------------------------------
       }
@@ -1894,9 +1858,11 @@ calculate_stream_depletions <- function(streams,
       pumping_vec <- c(pumping_mat)
       #-------------------------------------------------------------------------------
       
+      
       #-------------------------------------------------------------------------------
       # vector of zeroes that will be filled with the function evaluations
       depletions_vec <- rep(0, length(starts_actual_vec))
+      fractional_vec <- rep(0, length(starts_actual_vec))
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
@@ -1913,19 +1879,53 @@ calculate_stream_depletions <- function(streams,
                     stor_coef = stor_coef,
                     transmissivity = transmissivity,
                     lambda = lambda))
-      #-------------------------------------------------------------------------------
       
-      #-------------------------------------------------------------------------------
-      # return to matrix form for summation
       depletions_mat <- matrix(depletions_vec,
                                nrow = length(timesteps),
                                ncol = length(start_pumping))
       depletions_mat <- depletions_mat[-c(1), ]
+      depletions <- base::rowSums(depletions_mat)
+      
+      
+      
+      
+      
+      
+      fractional_vec[starts_actual_vec > 0] <-
+        (equation(elapsed_time = starts_actual_vec[starts_actual_vec > 0],
+                  distance = distance,
+                  stor_coef = stor_coef,
+                  transmissivity = transmissivity,
+                  lambda = lambda) -
+           equation(elapsed_time = stops_actual_vec[starts_actual_vec > 0],
+                    distance = distance,
+                    stor_coef = stor_coef,
+                    transmissivity = transmissivity,
+                    lambda = lambda))
+      
+      fractional_mat <- matrix(fractional_vec,
+                               nrow = length(timesteps),
+                               ncol = length(start_pumping))
+      fractional_mat <- fractional_mat[-c(1), ]
+      fractions <- base::rowSums(fractional_mat)
       #-------------------------------------------------------------------------------
+      
+      
+      #-------------------------------------------------------------------------------
+      # memory allocation
+      rm(list = c('depletions_vec','depletions_mat',
+                  'fractional_mat','fractional_vec',
+                  'starts_actual','stops_actual',
+                  'timestep_mat','starts_mat',
+                  'stops_mat','pumping_mat'))
+      invisible(gc())
+      #-------------------------------------------------------------------------------
+      
       
       #-------------------------------------------------------------------------------
       # sum and return
-      return(base::rowSums(depletions_mat))
+      return(list(depletions,
+                  fractions))
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
@@ -1943,6 +1943,8 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     # for each reach calculate sum of all depletions
     depletions_per_reach <- list()
+    pump_frac_per_reach <- list()
+    depletions_potential_per_reach <- list()
     for(i in 1:ncol(closest_points_per_segment)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -1979,17 +1981,8 @@ calculate_stream_depletions <- function(streams,
         
         #-------------------------------------------------------------------------------
         depletions_per_well <- list()
-        
-        if(str_to_title(stream_depletion_output) == 'Fractional'){
-          pump_frac_per_well <- list()
-          sdf_end <- list()
-          sdf_start <- list()
-          
-          # specific to glover but used here because there is no easy inverse
-          # of the hunt model
-          depletions_end_time <- erfcinv(lagged_depletions_end_time)
-          depletions_start_time <- erfcinv(lagged_depletions_start_time)
-        }
+        pump_frac_per_well <- list()
+        depletions_potential_per_well <- list()
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -2025,120 +2018,52 @@ calculate_stream_depletions <- function(streams,
                                                distance = distance,
                                                QW = pumping[j, ],
                                                lambda = lambda)
-          Q_final <- Q_out*fracs[j]
+          Q_final <- Q_out[[1]]*fracs[j]
+          Q_fraction <- Q_out[[2]]
           #-------------------------------------------------------------------------------
           
           #-------------------------------------------------------------------------------
           depletions_per_well[[counter]] <- Q_final
-          #-------------------------------------------------------------------------------
-          
-          #-------------------------------------------------------------------------------
-          if(str_to_title(stream_depletion_output) == 'Fractional'){
-            pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
-            
-            # specific to glover but used here because there is no easy inverse
-            # of the hunt model
-            sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time)
-            sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time)
-          }
+          depletions_potential_per_well[[counter]] <- Q_fraction
+          pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
           #-------------------------------------------------------------------------------
         }
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
         depletions_total <- do.call(cbind, depletions_per_well)
+        pump_frac_per_well_total <- do.call(cbind, pump_frac_per_well)
+        depletions_potential_per_well_total <- do.call(cbind, depletions_potential_per_well)
         #-------------------------------------------------------------------------------
         
-        #-------------------------------------------------------------------------------
-        if(str_to_title(stream_depletion_output) == 'Fractional'){
-          #-------------------------------------------------------------------------------
-          # fractional depletion method taken from Zipper 2019
-          # https://doi.org/10.1029/2018WR024403 eq 1
-          # sdf taken from barlow and leake 2012 citing Jenkins 1968
-          # https://pubs.usgs.gov/circ/1376/
-          # qs(t)  = Qw * erfc(z)
-          # Qs (90 % depletions) = wanted quantity (time to 90% depletions)
-          # Qs (90%) = Qw * erfc(z99)
-          # erfc(z99) = 0.99
-          # z99 = erfcinv(0.99) = 0.0086
-          # z99 = sqrt(Sd^2/4Tt99) [Zipper 2019; Glover and Balmer 1954]
-          # z99 = d/2(sqrt(Tt99/S))
-          # t99 = (d/2*z99)^2 * S/T
-          # t99 = d^2*S/4Tz99^2
+        average_fractional_depletions <- sapply(c(1:ncol(pumping)), function(k){
           
-          # evaluate erfcinv at 0.99 (when 99% has occured) to get function value
-          # evaluate at what time this must have occurred by rearranging equation
+          w <- (pumping[,k] * fracs)/mean(pumping[,k] * fracs, na.rm = T)
+          rm <- which(is.na(w) == TRUE &
+                        is.nan(w) == FALSE)
+          if(length(rm) > 0){
+            w <- w[-c(rm)]
+          } else {}
           
+          if(all(is.nan(w)) == TRUE){
+            w <- rep(1,length(w))
+          }
           
-          
-          pump_frac_total <- do.call(cbind, pump_frac_per_well)
-          # take median so if we have a far away well that is close to no other stream
-          # it doesnt bias sdf_avg
-          sdf_end_avg <- round(median(unlist(sdf_end), na.rm = T), 0)
-          sdf_start <- unlist(sdf_start)
-          sdf_start <- sort(sdf_start[is.na(sdf_start) == FALSE])
-          start_weights <- rev(c(1:length(sdf_start)))
-          
-          # take weighted average of sdf starts for conservative net of which pumping
-          # is currently contributing to depletions
-          sdf_start_avg <- round(weighted_mean(x = sdf_start,
-                                               w = start_weights,
-                                               na.rm = TRUE),0)
-          #-------------------------------------------------------------------------------
-          
-          
-          
-          #-------------------------------------------------------------------------------
-          # get the average pumping occuring over the time period that pumping is having the 
-          # maximum impact on streams mean(pump[t-sdf_avg : t])
-          # for hunt model the impacts are felt over SUCH a long time
-          # that even with this conservative approach infinities can still occur
-          # taking global average would prevent this, but wouldnt represent
-          # only the pumping contributing to streamflow
-          sum_pump_frac <- base::rowSums(pump_frac_total)
-          
-          sum_pump_frac_lagged <- sapply(seq_along(sum_pump_frac), function(i) {
-            start <- max(1, i - sdf_end_avg)
-            
-            if(i <= sdf_start_avg){
-              end <- i
-            } else if (i > sdf_start_avg &
-                       i < sdf_start_avg*2){
-              end <- sdf_start_avg
-            } else {
-              end <- i - sdf_start_avg
-            }
-            
-            if(length(c(start:end)) < sdf_start_avg*2){
-              mean(sum_pump_frac[start:end])
-            } else if(length(c(start:end)) %% 2 != 0){ # odd number of timesteps
-              k <- floor((length(c(start:end))/2))
-              w <- c(c(1:k),k+1,c(k:1))
-              weighted_mean(x = sum_pump_frac[start:end],
-                            w = w,
-                            na.rm = TRUE)
-            } else if(length(c(start:end)) %% 2 == 0){ # even number of timesteps
-              k <- (length(c(start:end))/2) - 1
-              w <- c(c(1:k),k+1,c(k:1))
-              weighted_mean(x = sum_pump_frac[start:end],
-                            w = w,
-                            na.rm = TRUE)
-            }
-            # sum on rolling window based on sdf
-            # lets say i = 30, we might sum between pump_frac[12:27] or something like that
-            # accounts for the fact that pumping at time i will not impact stream for a number of time
-            # steps and that it will continue to effect it for a number of time steps
-          })
-          depletions_per_reach[[i]] <- base::rowSums(depletions_total)/sum_pump_frac_lagged
-          #-------------------------------------------------------------------------------
-          #-------------------------------------------------------------------------------
-          
-        } else {
-          depletions_per_reach[[i]] <- base::rowSums(depletions_total)
-        }
-        #-------------------------------------------------------------------------------
+          x <- depletions_potential_per_well_total[k,]
+          x <- x[is.na(x) == FALSE]
+          weighted_mean(x = x,
+                        w = w, na.rm = T)
+        })
+        
+        depletions_potential_per_reach[[i]] <- average_fractional_depletions
+        depletions_per_reach[[i]] <- base::rowSums(depletions_total)
+        pump_frac_per_reach[[i]] <- base::rowSums(pump_frac_per_well_total)
+        
+        
       } else{
         depletions_per_reach[[i]] <- rep(0, ncol(pumping)) # reach has no depletions
+        pump_frac_per_reach[[i]] <- rep(0, ncol(pumping))
+        depletions_potential_per_reach[[i]] <- rep(0, ncol(pumping))
       }
       #-------------------------------------------------------------------------------
     }
@@ -2177,11 +2102,8 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # write status to log
-    if(str_to_title(stream_depletion_output) == 'Fractional'){
-      u <-  paste('(decimal [0,1]):')
-    } else {
-      u <- paste0('(',units,'^3','):')
-    }
+    u <- paste0('(',units,'^3','):')
+    
     
     writeLines(text = sprintf('%s %s',
                               'Mean | Median start of stream depletions (timestep): ',
@@ -2218,8 +2140,12 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # output
+    depletions_potential_per_reach <- do.call(rbind, depletions_potential_per_reach)
     depletions_per_reach <- do.call(rbind, depletions_per_reach)
-    return(depletions_per_reach)
+    pump_frac_per_reach <- do.call(rbind, pump_frac_per_reach)
+    return(list(depletions_per_reach,
+                depletions_potential_per_reach,
+                pump_frac_per_reach))
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
@@ -2240,8 +2166,7 @@ calculate_stream_depletions <- function(streams,
                                                     wells = wells,
                                                     transmissivity_key = transmissivity_key,
                                                     stor_coef_key = stor_coef_key,
-                                                    leakance_key = leakance_key,
-                                                    stream_depletion_output = stream_depletion_output)
+                                                    leakance_key = leakance_key)
   {
     #===========================================================================================
     # Calculates stream depletions assuming a fully penetrating stream with no
@@ -2355,6 +2280,7 @@ calculate_stream_depletions <- function(streams,
         
         
         #-------------------------------------------------------------------------------
+        rm(list = c('t1','t2','t2_a','t2_b','t3','t3_a','z'))
         return(QA)
         #-------------------------------------------------------------------------------
       }
@@ -2402,9 +2328,12 @@ calculate_stream_depletions <- function(streams,
       pumping_vec <- c(pumping_mat)
       #-------------------------------------------------------------------------------
       
+      
+      
       #-------------------------------------------------------------------------------
       # vector of zeroes that will be filled with the function evaluations
       depletions_vec <- rep(0, length(starts_actual_vec))
+      fractional_vec <- rep(0, length(starts_actual_vec))
       #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
@@ -2421,19 +2350,53 @@ calculate_stream_depletions <- function(streams,
                     stor_coef = stor_coef,
                     transmissivity = transmissivity,
                     leakance = leakance))
-      #-------------------------------------------------------------------------------
       
-      #-------------------------------------------------------------------------------
-      # return to matrix form for summation
       depletions_mat <- matrix(depletions_vec,
                                nrow = length(timesteps),
                                ncol = length(start_pumping))
       depletions_mat <- depletions_mat[-c(1), ]
+      depletions <- base::rowSums(depletions_mat)
+      
+      
+      
+      
+      
+      
+      fractional_vec[starts_actual_vec > 0] <-
+        (equation(elapsed_time = starts_actual_vec[starts_actual_vec > 0],
+                  distance = distance,
+                  stor_coef = stor_coef,
+                  transmissivity = transmissivity,
+                  leakance = leakance) -
+           equation(elapsed_time = stops_actual_vec[starts_actual_vec > 0],
+                    distance = distance,
+                    stor_coef = stor_coef,
+                    transmissivity = transmissivity,
+                    leakance = leakance))
+      
+      fractional_mat <- matrix(fractional_vec,
+                               nrow = length(timesteps),
+                               ncol = length(start_pumping))
+      fractional_mat <- fractional_mat[-c(1), ]
+      fractions <- base::rowSums(fractional_mat)
       #-------------------------------------------------------------------------------
+      
+      
+      #-------------------------------------------------------------------------------
+      # memory allocation
+      rm(list = c('depletions_vec','depletions_mat',
+                  'fractional_mat','fractional_vec',
+                  'starts_actual','stops_actual',
+                  'timestep_mat','starts_mat',
+                  'stops_mat','pumping_mat'))
+      invisible(gc())
+      #-------------------------------------------------------------------------------
+      
       
       #-------------------------------------------------------------------------------
       # sum and return
-      return(base::rowSums(depletions_mat))
+      return(list(depletions,
+                  fractions))
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
@@ -2451,6 +2414,8 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     # for each reach calculate sum of all depletions
     depletions_per_reach <- list()
+    pump_frac_per_reach <- list()
+    depletions_potential_per_reach <- list()
     for(i in 1:ncol(closest_points_per_segment)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -2487,17 +2452,8 @@ calculate_stream_depletions <- function(streams,
         
         #-------------------------------------------------------------------------------
         depletions_per_well <- list()
-        
-        if(str_to_title(stream_depletion_output) == 'Fractional'){
-          pump_frac_per_well <- list()
-          sdf_end <- list()
-          sdf_start <- list()
-          
-          # specific to glover but used here because there is no easy inverse
-          # of the hunt model
-          depletions_end_time <- erfcinv(lagged_depletions_end_time)
-          depletions_start_time <- erfcinv(lagged_depletions_start_time)
-        }
+        pump_frac_per_well <- list()
+        depletions_potential_per_well <- list()
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -2533,118 +2489,53 @@ calculate_stream_depletions <- function(streams,
                                                   distance = distance,
                                                   QW = pumping[j, ],
                                                   leakance = leakance)
-          Q_final <- Q_out*fracs[j]
+          Q_final <- Q_out[[1]]*fracs[j]
+          Q_fraction <- Q_out[[2]]
           #-------------------------------------------------------------------------------
           
           #-------------------------------------------------------------------------------
           depletions_per_well[[counter]] <- Q_final
-          #-------------------------------------------------------------------------------
-          
-          #-------------------------------------------------------------------------------
-          if(str_to_title(stream_depletion_output) == 'Fractional'){
-            pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
-            
-            # specific to glover but used here because there is no easy inverse
-            # of the hunt model
-            sdf_end[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_end_time)
-            sdf_start[[counter]] <- ((distance*distance)*stor_coef)/(4*transmissivity*depletions_start_time)
-          }
+          depletions_potential_per_well[[counter]] <- Q_fraction
+          pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
           #-------------------------------------------------------------------------------
         }
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
         depletions_total <- do.call(cbind, depletions_per_well)
+        pump_frac_per_well_total <- do.call(cbind, pump_frac_per_well)
+        depletions_potential_per_well_total <- do.call(cbind, depletions_potential_per_well)
         #-------------------------------------------------------------------------------
         
-        #-------------------------------------------------------------------------------
-        if(str_to_title(stream_depletion_output) == 'Fractional'){
-          #-------------------------------------------------------------------------------
-          # fractional depletion method taken from Zipper 2019
-          # https://doi.org/10.1029/2018WR024403 eq 1
-          # sdf taken from barlow and leake 2012 citing Jenkins 1968
-          # https://pubs.usgs.gov/circ/1376/
-          # qs(t)  = Qw * erfc(z)
-          # Qs (90 % depletions) = wanted quantity (time to 90% depletions)
-          # Qs (90%) = Qw * erfc(z99)
-          # erfc(z99) = 0.99
-          # z99 = erfcinv(0.99) = 0.0086
-          # z99 = sqrt(Sd^2/4Tt99) [Zipper 2019; Glover and Balmer 1954]
-          # z99 = d/2(sqrt(Tt99/S))
-          # t99 = (d/2*z99)^2 * S/T
-          # t99 = d^2*S/4Tz99^2
+        
+        average_fractional_depletions <- sapply(c(1:ncol(pumping)), function(k){
           
-          # evaluate erfcinv at 0.99 (when 99% has occured) to get function value
-          # evaluate at what time this must have occurred by rearranging equation
+          w <- (pumping[,k] * fracs)/mean(pumping[,k] * fracs, na.rm = T)
+          rm <- which(is.na(w) == TRUE &
+                        is.nan(w) == FALSE)
+          if(length(rm) > 0){
+            w <- w[-c(rm)]
+          } else {}
           
+          if(all(is.nan(w)) == TRUE){
+            w <- rep(1,length(w))
+          }
           
-          
-          pump_frac_total <- do.call(cbind, pump_frac_per_well)
-          # take median so if we have a far away well that is close to no other stream
-          # it doesnt bias sdf_avg
-          sdf_end_avg <- round(median(unlist(sdf_end), na.rm = T), 0)
-          sdf_start <- unlist(sdf_start)
-          sdf_start <- sort(sdf_start[is.na(sdf_start) == FALSE])
-          start_weights <- rev(c(1:length(sdf_start)))
-          
-          # take weighted average of sdf starts for conservative net of which pumping
-          # is currently contributing to depletions
-          sdf_start_avg <- round(weighted_mean(x = sdf_start,
-                                               w = start_weights,
-                                               na.rm = TRUE),0)
-          #-------------------------------------------------------------------------------
-          
-          
-          
-          #-------------------------------------------------------------------------------
-          # get the average pumping occuring over the time period that pumping is having the 
-          # maximum impact on streams mean(pump[t-sdf_avg : t])
-          # for hunt model the impacts are felt over SUCH a long time
-          # that even with this conservative approach infinities can still occur
-          # taking global average would prevent this, but wouldnt represent
-          # only the pumping contributing to streamflow
-          sum_pump_frac <- base::rowSums(pump_frac_total)
-          
-          sum_pump_frac_lagged <- sapply(seq_along(sum_pump_frac), function(i) {
-            start <- max(1, i - sdf_end_avg)
-            
-            if(i <= sdf_start_avg){
-              end <- i
-            } else if (i > sdf_start_avg &
-                       i < sdf_start_avg*2){
-              end <- sdf_start_avg
-            } else {
-              end <- i - sdf_start_avg
-            }
-            
-            if(length(c(start:end)) < sdf_start_avg*2){
-              mean(sum_pump_frac[start:end])
-            } else if(length(c(start:end)) %% 2 != 0){ # odd number of timesteps
-              k <- floor((length(c(start:end))/2))
-              w <- c(c(1:k),k+1,c(k:1))
-              weighted_mean(x = sum_pump_frac[start:end],
-                            w = w,
-                            na.rm = TRUE)
-            } else if(length(c(start:end)) %% 2 == 0){ # even number of timesteps
-              k <- (length(c(start:end))/2) - 1
-              w <- c(c(1:k),k+1,c(k:1))
-              weighted_mean(x = sum_pump_frac[start:end],
-                            w = w,
-                            na.rm = TRUE)
-            }
-            # sum on rolling window based on sdf
-            # lets say i = 30, we might sum between pump_frac[12:27] or something like that
-            # accounts for the fact that pumping at time i will not impact stream for a number of time
-            # steps and that it will continue to effect it for a number of time steps
-          })
-          depletions_per_reach[[i]] <- base::rowSums(depletions_total)/sum_pump_frac_lagged
-          #-------------------------------------------------------------------------------
-        } else {
-          depletions_per_reach[[i]] <- base::rowSums(depletions_total)
-        }
-        #-------------------------------------------------------------------------------
+          x <- depletions_potential_per_well_total[k,]
+          x <- x[is.na(x) == FALSE]
+          weighted_mean(x = x,
+                        w = w, na.rm = T)
+        })
+        
+        depletions_potential_per_reach[[i]] <- average_fractional_depletions
+        depletions_per_reach[[i]] <- base::rowSums(depletions_total)
+        pump_frac_per_reach[[i]] <- base::rowSums(pump_frac_per_well_total)
+        
+
       } else{
         depletions_per_reach[[i]] <- rep(0, ncol(pumping)) # reach has no depletions
+        pump_frac_per_reach[[i]] <- rep(0, ncol(pumping))
+        depletions_potential_per_reach[[i]] <- rep(0, ncol(pumping))
       }
       #-------------------------------------------------------------------------------
     }
@@ -2683,11 +2574,8 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # write status to log
-    if(str_to_title(stream_depletion_output) == 'Fractional'){
-      u <-  paste('(decimal [0,1]):')
-    } else {
-      u <- paste0('(',units,'^3','):')
-    }
+    u <- paste0('(',units,'^3','):')
+    
     
     writeLines(text = sprintf('%s %s',
                               'Mean | Median start of stream depletions (timestep): ',
@@ -2724,8 +2612,12 @@ calculate_stream_depletions <- function(streams,
     
     #-------------------------------------------------------------------------------
     # output
+    depletions_potential_per_reach <- do.call(rbind, depletions_potential_per_reach)
     depletions_per_reach <- do.call(rbind, depletions_per_reach)
-    return(depletions_per_reach)
+    pump_frac_per_reach <- do.call(rbind, pump_frac_per_reach)
+    return(list(depletions_per_reach,
+                depletions_potential_per_reach,
+                pump_frac_per_reach))
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
@@ -3141,8 +3033,7 @@ calculate_stream_depletions <- function(streams,
                                                    stor_coef_key = stor_coef_key,
                                                    lambda_key = lambda_key,
                                                    leakance_key = leakance_key,
-                                                   analytical_model = analytical_model,
-                                                   stream_depletion_output = stream_depletion_output){
+                                                   analytical_model = analytical_model){
     #-------------------------------------------------------------------------------
     # write status to log
     writeLines(text = sprintf('%s %s',
@@ -3153,11 +3044,6 @@ calculate_stream_depletions <- function(streams,
     writeLines(text = sprintf('%s %s',
                               'Using analytical model: ',
                               str_to_title(analytical_model)),
-               con = log_file)
-    
-    writeLines(text = sprintf('%s %s',
-                              'And output format: ',
-                              str_to_title(stream_depletion_output)),
                con = log_file)
     #-------------------------------------------------------------------------------
     
@@ -3171,12 +3057,7 @@ calculate_stream_depletions <- function(streams,
                                                      stream_points_geometry = stream_points_geometry,
                                                      wells = wells,
                                                      transmissivity_key = transmissivity_key,
-                                                     stor_coef_key = stor_coef_key,
-                                                     stream_depletion_output = stream_depletion_output)
-      output <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
-                      output)
-      output <- as.data.frame(output)
-      colnames(output) <- c('RN', paste0('T',1:(ncol(output)-1)))
+                                                     stor_coef_key = stor_coef_key)
 
     } else if (str_to_title(analytical_model) %in% c('Hunt')){
       output <- hunt_stream_depletion_calculations(closest_points_per_segment = closest_points_per_segment,
@@ -3185,12 +3066,8 @@ calculate_stream_depletions <- function(streams,
                                                    wells = wells,
                                                    transmissivity_key = transmissivity_key,
                                                    stor_coef_key = stor_coef_key,
-                                                   lambda_key = lambda_key,
-                                                   stream_depletion_output = stream_depletion_output)
-      output <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
-                      output)
-      output <- as.data.frame(output)
-      colnames(output) <- c('RN', paste0('T',1:(ncol(output)-1)))
+                                                   lambda_key = lambda_key)
+
     } else if (str_to_title(analytical_model) %in% c('Hantush')){
       output <- hantush_stream_depletion_calculations(closest_points_per_segment = closest_points_per_segment,
                                                       stream_points_geometry = stream_points_geometry,
@@ -3198,15 +3075,29 @@ calculate_stream_depletions <- function(streams,
                                                       wells = wells,
                                                       transmissivity_key = transmissivity_key,
                                                       stor_coef_key = stor_coef_key,
-                                                      leakance_key = leakance_key,
-                                                      stream_depletion_output = stream_depletion_output)
-      output <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
-                      output)
-      output <- as.data.frame(output)
-      colnames(output) <- c('RN', paste0('T',1:(ncol(output)-1)))
+                                                      leakance_key = leakance_key)
+
     } else {}
     #-------------------------------------------------------------------------------
     
+    
+    #-------------------------------------------------------------------------------
+    # format output
+    depletions_per_reach <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
+                                  output[[1]])
+    depletions_per_reach <- as.data.frame(depletions_per_reach)
+    colnames(depletions_per_reach) <- c('RN', paste0('T',1:(ncol(depletions_per_reach)-1)))
+    
+    depletions_potential_per_reach <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
+                                            output[[2]])
+    depletions_potential_per_reach <- as.data.frame(depletions_potential_per_reach)
+    colnames(depletions_potential_per_reach) <- c('RN', paste0('T',1:(ncol(depletions_potential_per_reach)-1)))
+    
+    pump_frac_per_reach <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
+                                  output[[3]])
+    pump_frac_per_reach <- as.data.frame(pump_frac_per_reach)
+    colnames(pump_frac_per_reach) <- c('RN', paste0('T',1:(ncol(pump_frac_per_reach)-1)))
+    #-------------------------------------------------------------------------------
     
     
     #-------------------------------------------------------------------------------
@@ -3219,7 +3110,9 @@ calculate_stream_depletions <- function(streams,
                con = log_file)
     #-------------------------------------------------------------------------------
     
-    return(output)
+    return(list(depletions_per_reach,
+                depletions_potential_per_reach,
+                pump_frac_per_reach))
   }
   #-------------------------------------------------------------------------------
   
@@ -3774,16 +3667,25 @@ calculate_stream_depletions <- function(streams,
                                                    stor_coef_key = stor_coef_key,
                                                    lambda_key = lambda_key,
                                                    leakance_key = leakance_key,
-                                                   analytical_model = analytical_model,
-                                                   stream_depletion_output = stream_depletion_output)
-    depletions_by_reach <- output
+                                                   analytical_model = analytical_model)
+    depletions_by_reach <- output[[1]]
+    depletions_potential_by_reach <- output[[2]]
+    pump_frac_by_reach <- output[[3]]
     #-------------------------------------------------------------------------------
 
     
     #-------------------------------------------------------------------------------
     write.csv(depletions_by_reach,
               file.path(data_out_dir,
-                        paste0(stream_depletion_output,'_depletions_by_reach.csv')),
+                        paste0('volumetric_depletions_by_reach.csv')),
+              row.names = FALSE)
+    write.csv(depletions_potential_by_reach,
+              file.path(data_out_dir,
+                        paste0('fractional_depletions_by_reach.csv')),
+              row.names = FALSE)
+    write.csv(pump_frac_by_reach,
+              file.path(data_out_dir,
+                        paste0('pump_frac_by_reach.csv')),
               row.names = FALSE)
     #-------------------------------------------------------------------------------
 

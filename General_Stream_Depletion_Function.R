@@ -91,7 +91,7 @@ calculate_stream_depletions <- function(streams,
     }
   }
   # ------------------------------------------------------------------------------------------------
-  
+
   #===========================================================================================
   # weighted mean function to avoid loading the stats library
   #===========================================================================================
@@ -1574,11 +1574,21 @@ calculate_stream_depletions <- function(streams,
         #-------------------------------------------------------------------------------
         
         average_fractional_depletions <- sapply(c(1:ncol(pumping)), function(k){
+
           w <- (pumping[,k] * fracs)/mean(pumping[,k] * fracs, na.rm = T)
+          rm <- which(is.na(w) == TRUE &
+                        is.nan(w) == FALSE)
+          if(length(rm) > 0){
+            w <- w[-c(rm)]
+          } else {}
+          
           if(all(is.nan(w)) == TRUE){
-            w <- rep(1,length(pumping[,k]))
+            w <- rep(1,length(w))
           }
-          weighted_mean(x = depletions_potential_per_well_total[k,],
+          
+          x <- depletions_potential_per_well_total[k,]
+          x <- x[is.na(x) == FALSE]
+          weighted_mean(x = x,
                         w = w, na.rm = T)
         })
         
@@ -1596,7 +1606,7 @@ calculate_stream_depletions <- function(streams,
     }
     #-------------------------------------------------------------------------------
     
-    
+
     
     #-------------------------------------------------------------------------------
     # stats
@@ -1659,7 +1669,7 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
     
     
-    
+
     #-------------------------------------------------------------------------------
     # output
     depletions_potential_per_reach <- do.call(rbind, depletions_potential_per_reach)
@@ -2027,11 +2037,21 @@ calculate_stream_depletions <- function(streams,
         #-------------------------------------------------------------------------------
         
         average_fractional_depletions <- sapply(c(1:ncol(pumping)), function(k){
+          
           w <- (pumping[,k] * fracs)/mean(pumping[,k] * fracs, na.rm = T)
+          rm <- which(is.na(w) == TRUE &
+                        is.nan(w) == FALSE)
+          if(length(rm) > 0){
+            w <- w[-c(rm)]
+          } else {}
+          
           if(all(is.nan(w)) == TRUE){
-            w <- rep(1,length(pumping[,k]))
+            w <- rep(1,length(w))
           }
-          weighted_mean(x = depletions_potential_per_well_total[k,],
+          
+          x <- depletions_potential_per_well_total[k,]
+          x <- x[is.na(x) == FALSE]
+          weighted_mean(x = x,
                         w = w, na.rm = T)
         })
         
@@ -2489,11 +2509,21 @@ calculate_stream_depletions <- function(streams,
         
         
         average_fractional_depletions <- sapply(c(1:ncol(pumping)), function(k){
+          
           w <- (pumping[,k] * fracs)/mean(pumping[,k] * fracs, na.rm = T)
+          rm <- which(is.na(w) == TRUE &
+                        is.nan(w) == FALSE)
+          if(length(rm) > 0){
+            w <- w[-c(rm)]
+          } else {}
+          
           if(all(is.nan(w)) == TRUE){
-            w <- rep(1,length(pumping[,k]))
+            w <- rep(1,length(w))
           }
-          weighted_mean(x = depletions_potential_per_well_total[k,],
+          
+          x <- depletions_potential_per_well_total[k,]
+          x <- x[is.na(x) == FALSE]
+          weighted_mean(x = x,
                         w = w, na.rm = T)
         })
         

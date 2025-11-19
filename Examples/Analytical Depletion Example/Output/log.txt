@@ -19,7 +19,6 @@ Moving to next step ...
 
 #### Calculating Depletions For Each Well
 Using analytical model:  Glover
-And output format:  Volumetric
 Mean | Median start of stream depletions (timestep):  1.03  |  1
 Mean | Median final depletions (meters^3): 14.6473 | 12.6347 at timestep (t_final) 595
 Max final depletions (meters^3): 92.254 at timestep (t_final) 595 for reach 11
