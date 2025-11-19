@@ -40,7 +40,7 @@ for(file in list.files(file.path(getwd()),pattern = '*.R$', full.names = TRUE)){
 # Introduction
 
 This will be an example of how to calculate stream depletions using the fastest method <br/>
-criteria from Zipper et al. (https://doi.org/10.1029/2018WR024403). The fastest method uses the 'local area' proximity criteria, the 'inverse distance' apportionment method, and the 'glover'(glover-balmer) analytical model. <br/>
+from Zipper et al. (https://doi.org/10.1029/2018WR024403). The fastest method uses the 'local area' proximity criteria, the 'inverse distance' apportionment method, and the 'glover'(glover-balmer) analytical model. <br/>
 <br/>
 For this we will first load in the following files: <br/>
 Shasta groundwater basin <br/>
