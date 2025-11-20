@@ -1704,7 +1704,6 @@ calculate_stream_depletions <- function(streams,
                   'starts_actual','stops_actual',
                   'timestep_mat','starts_mat',
                   'stops_mat','pumping_mat'))
-      invisible(gc())
       #-------------------------------------------------------------------------------
 
 
@@ -2142,7 +2141,6 @@ calculate_stream_depletions <- function(streams,
                   'starts_actual','stops_actual',
                   'timestep_mat','starts_mat',
                   'stops_mat','pumping_mat'))
-      invisible(gc())
       #-------------------------------------------------------------------------------
       
       
@@ -2600,7 +2598,6 @@ calculate_stream_depletions <- function(streams,
                   'starts_actual','stops_actual',
                   'timestep_mat','starts_mat',
                   'stops_mat','pumping_mat'))
-      invisible(gc())
       #-------------------------------------------------------------------------------
       
       
