@@ -1011,8 +1011,9 @@ calculate_stream_depletions <- function(streams,
     # writeout statistics
     max_dep <- max(fractions_of_depletions, na.rm = T)
     wm <- which(fractions_of_depletions == max_dep, arr.ind = TRUE)
+    
     reach_max_dep <- reaches[wm]
-    well_max_dep <- unlist(as.vector(st_drop_geometry(wells[wm[1,1],wells_id_key])))
+    well_max_dep <- as.vector(unlist(st_drop_geometry(wells[wm[,1],wells_id_key])))
     #-------------------------------------------------------------------------------
     
 
@@ -1030,7 +1031,7 @@ calculate_stream_depletions <- function(streams,
                             paste0('RN',
                                    1:(ncol(reaches)-1)))
     #-------------------------------------------------------------------------------
-    
+
 
     #-------------------------------------------------------------------------------
     # write status to log
@@ -1038,9 +1039,9 @@ calculate_stream_depletions <- function(streams,
                               'Max apportioned depletion fraction: ',
                               paste(round(max_dep,4),
                                     'for reach',
-                                    reach_max_dep,
+                                    paste(reach_max_dep, collapse = ','),
                                     'for well',
-                                    well_max_dep)),
+                                    paste(well_max_dep, collapse = ','))),
                con = log_file)
     #-------------------------------------------------------------------------------
     
@@ -1240,8 +1241,9 @@ calculate_stream_depletions <- function(streams,
     # writeout statistics
     max_dep <- max(fractions_of_depletions, na.rm = T)
     wm <- which(fractions_of_depletions == max_dep, arr.ind = TRUE)
+    
     reach_max_dep <- reaches[wm]
-    well_max_dep <- unlist(as.vector(st_drop_geometry(wells[wm[1,1],wells_id_key])))
+    well_max_dep <- as.vector(unlist(st_drop_geometry(wells[wm[,1],wells_id_key])))
     #-------------------------------------------------------------------------------
     
     
@@ -1267,9 +1269,9 @@ calculate_stream_depletions <- function(streams,
                               'Max apportioned depletion fraction: ',
                               paste(round(max_dep,4),
                                     'for reach',
-                                    reach_max_dep,
+                                    paste(reach_max_dep, collapse = ','),
                                     'for well',
-                                    well_max_dep)),
+                                    paste(well_max_dep, collapse = ','))),
                con = log_file)
     #-------------------------------------------------------------------------------
     
@@ -1477,8 +1479,9 @@ calculate_stream_depletions <- function(streams,
     # writeout statistics
     max_dep <- max(fractions_of_depletions, na.rm = T)
     wm <- which(fractions_of_depletions == max_dep, arr.ind = TRUE)
+    
     reach_max_dep <- reaches[wm]
-    well_max_dep <- unlist(as.vector(st_drop_geometry(wells[wm[1,1],wells_id_key])))
+    well_max_dep <- as.vector(unlist(st_drop_geometry(wells[wm[,1],wells_id_key])))
     #-------------------------------------------------------------------------------
     
     
@@ -1504,9 +1507,9 @@ calculate_stream_depletions <- function(streams,
                               'Max apportioned depletion fraction: ',
                               paste(round(max_dep,4),
                                     'for reach',
-                                    reach_max_dep,
+                                    paste(reach_max_dep, collapse = ','),
                                     'for well',
-                                    well_max_dep)),
+                                    paste(well_max_dep, collapse = ','))),
                con = log_file)
     #-------------------------------------------------------------------------------
     
@@ -3159,7 +3162,7 @@ calculate_stream_depletions <- function(streams,
                                                        1:(ncol(closest_points_per_segment)-1)))
       
     } else {
-      closest_points_per_segment <- NULL # otherwise if web method used all points are important
+      closest_points_per_segment <- NULL # otherwise if some future method implemented where this is not important
     }
     #-------------------------------------------------------------------------------
     
