@@ -407,11 +407,19 @@ well what fraction of its pumping goes to each stream it effects. The
 sum of the fractions, no matter the argument passed here, will always
 total to 1. Accepts <em>‘inverse distance’, ‘inverse distance squared’,
 ‘web’, ‘web squared’, ‘thiessen polygon’</em>. <br /> <br />
-<b><font size="3">analytical_model</font></b>: <em>char</em> default
-<em>‘glover’</em>, describes what analytical model to use for the
-calculation of stream depletions. Accepts <em>‘glover’, ‘hunt’,
-‘hantush’</em>. <em>‘Hunt’</em> and <em>‘hantush’</em> models are
-equivalent under the special case that <span class="math inline">\(\lambda = 2\frac{T}{L}\)</span> according to
+<b><font size="3">geologic_apportionment</font></b>: <em>boolean</em>
+default <em>FALSE</em>, describes whether to scale apportionment by the
+ratio between the transmissivity of the geologic unit of the reach and
+the geologic unit of the well <span class="math inline">\(\frac{T_{r}}{T_{w}}\)</span>. The logic behind
+this is that a reach in more transmissive units will receive more
+depletion than those in less transmissive units. For example if two
+reaches are equidistant from a well, and the reaches are in two
+different geologic units, they should not receive equal apportionment.
+<br /> <br /> <b><font size="3">analytical_model</font></b>:
+<em>char</em> default <em>‘glover’</em>, describes what analytical model
+to use for the calculation of stream depletions. Accepts <em>‘glover’,
+‘hunt’, ‘hantush’</em>. <em>‘Hunt’</em> and <em>‘hantush’</em> models
+are equivalent under the special case that <span class="math inline">\(\lambda = 2\frac{T}{L}\)</span> according to
 Reeves (2008). <br /> <br />
 <b><font size="3">depletion_potential_criteria</font></b>:
 <em>char</em> default <em>‘fractional’</em>, describes what how to
@@ -436,14 +444,18 @@ user messages to console. Value of <em>TRUE</em> does not give console
 messages. <br /> <br /> <b><font size="3">stor_coef_key</font></b>:
 <em>char</em> default <em>‘Stor’</em>, describes the name of the column
 in the well data that stores the storage coefficient data. <br /> <br />
-<b><font size="3">transmissivity_key</font></b>: <em>char</em> default
-<em>‘Tr’</em>, describes the name of the column in the well data that
-stores transmissivity data (<span class="math inline">\(Kb\)</span>).
-<br /> <br /> <b><font size="3">leakance_key</font></b>: <em>char</em>
+<b><font size="3">well_transmissivity_key</font></b>: <em>char</em>
+default <em>‘Tr’</em>, describes the name of the column in the well data
+that stores transmissivity data (<span class="math inline">\(Kb\)</span>). <br /> <br />
+<b><font size="3">stream_transmissivity_key</font></b>: <em>char</em>
 default <em>NULL</em>, describes the name of the column in the stream
-data that stores leakance data, where leakance is a product of the
-conductivity of the aquifer multiplied by the streambed clogging layer
-thickness divided by the streambed clogging layer conductivity <span class="math inline">\(\frac{Kb^\text{&#39;}}{K^\text{&#39;}}\)</span>.
+data that stores transmissivity data (<span class="math inline">\(Kb\)</span>). Only necessary if
+<em>geologic_apportionment</em> is set to <em>TRUE</em>. <br /> <br />
+<b><font size="3">leakance_key</font></b>: <em>char</em> default
+<em>NULL</em>, describes the name of the column in the stream data that
+stores leakance data, where leakance is a product of the conductivity of
+the aquifer multiplied by the streambed clogging layer thickness divided
+by the streambed clogging layer conductivity <span class="math inline">\(\frac{Kb^\text{&#39;}}{K^\text{&#39;}}\)</span>.
 Argument is required if <em>analytical_model</em> is set to
 <em>‘hantush’</em>. Definition taken from Reeves (2008) referencing
 Hantush (1965). <br /> <br /> <b><font size="3">lambda_key</font></b>:

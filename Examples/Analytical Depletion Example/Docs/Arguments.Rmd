@@ -59,6 +59,9 @@ options(scipen = 100)
 <b><font size = "3">apportionment_criteria</font></b>: *char* default *'inverse distance'*, describes how to assign for each well what fraction of its pumping goes to each stream it effects. The sum of the fractions, no matter the argument passed here, will always total to 1. Accepts *'inverse distance', 'inverse distance squared', 'web', 'web squared', 'thiessen polygon'*.
 <br/>
 <br/>
+<b><font size = "3">geologic_apportionment</font></b>: *boolean* default *FALSE*, describes whether to scale apportionment by the ratio between the transmissivity of the geologic unit of the reach and the geologic unit of the well $\frac{T_{r}}{T_{w}}$. The logic behind this is that a reach in more transmissive units will receive more depletion than those in less transmissive units. For example if two reaches are equidistant from a well, and the reaches are in two different geologic units, they should not receive equal apportionment.
+<br/>
+<br/>
 <b><font size = "3">analytical_model</font></b>: *char* default *'glover'*, describes what analytical model to use for the calculation of stream depletions. Accepts *'glover', 'hunt', 'hantush'*. *'Hunt'* and *'hantush'* models are equivalent under the special case that $\lambda = 2\frac{T}{L}$ according to Reeves (2008).
 <br/>
 <br/>
@@ -80,7 +83,10 @@ options(scipen = 100)
 <b><font size = "3">stor_coef_key</font></b>: *char* default *'Stor'*, describes the name of the column in the well data that stores the storage coefficient data.
 <br/>
 <br/>
-<b><font size = "3">transmissivity_key</font></b>: *char* default *'Tr'*, describes the name of the column in the well data that stores transmissivity data ($Kb$).
+<b><font size = "3">well_transmissivity_key</font></b>: *char* default *'Tr'*, describes the name of the column in the well data that stores transmissivity data ($Kb$).
+<br/>
+<br/>
+<b><font size = "3">stream_transmissivity_key</font></b>: *char* default *NULL*, describes the name of the column in the stream data that stores transmissivity data ($Kb$). Only necessary if *geologic_apportionment* is set to *TRUE*.
 <br/>
 <br/>
 <b><font size = "3">leakance_key</font></b>: *char* default *NULL*, describes the name of the column in the stream data that stores leakance data, where leakance is a product of the conductivity of the aquifer multiplied by the streambed clogging layer thickness divided by the streambed clogging layer conductivity $\frac{Kb^\text{'}}{K^\text{'}}$. Argument is required if *analytical_model* is set to *'hantush'*. Definition taken from Reeves (2008) referencing Hantush (1965).

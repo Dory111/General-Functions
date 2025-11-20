@@ -22,6 +22,7 @@ calculate_stream_depletions <- function(streams,
                                         influence_radius = NULL,
                                         proximity_criteria = 'whole domain',
                                         apportionment_criteria = 'inverse distance',
+                                        geologic_apportionment = FALSE,
                                         analytical_model = 'glover',
                                         depletion_potential_criteria = 'fractional',
                                         data_out_dir = getwd(),
@@ -29,7 +30,8 @@ calculate_stream_depletions <- function(streams,
                                         suppress_loading_bar = TRUE,
                                         suppress_console_messages = TRUE,
                                         stor_coef_key = 'Stor',
-                                        transmissivity_key = 'Tr',
+                                        well_transmissivity_key = 'Tr',
+                                        stream_transmissivity_key = NULL,
                                         leakance_key = NULL,
                                         lambda_key = NULL,
                                         prec = 80)
@@ -909,15 +911,31 @@ calculate_stream_depletions <- function(streams,
                          closest_points_per_well,
                          stream_points_geometry = stream_points_geometry)
     {
-      closest_points <- stream_points_geometry[closest_points_per_well, ]
-      reaches <- st_drop_geometry(stream_points_geometry[closest_points_per_well,stream_id_key])
-      reaches <- as.vector(unlist(reaches))
       
-      dists <- as.vector(st_distance(well,
-                                     st_geometry(closest_points)))
+      if(geologic_apportionment == FALSE){
+        closest_points <- stream_points_geometry[closest_points_per_well, ]
+        reaches <- st_drop_geometry(stream_points_geometry[closest_points_per_well,stream_id_key])
+        reaches <- as.vector(unlist(reaches))
+        
+        dists <- as.vector(st_distance(well,
+                                       st_geometry(closest_points)))
+        
+        numerator <- 1/(dists**power)
+        denominator <- sum(1/(dists**power))
+      } else {
+        closest_points <- stream_points_geometry[closest_points_per_well, ]
+        reaches <- st_drop_geometry(stream_points_geometry[closest_points_per_well,stream_id_key])
+        reaches <- as.vector(unlist(reaches))
+        K_prime <- as.vector(unlist(st_drop_geometry(stream_points_geometry[1,stream_transmissivity_key])))
+        
+        dists <- as.vector(st_distance(well,
+                                       st_geometry(closest_points)))
+        K <- as.vector(unlist(st_drop_geometry(well[,well_transmissivity_key])))
+        
+        numerator <- (1/(dists**power))*(K_prime/K)
+        denominator <- sum((1/(dists**power))*(K_prime/K))
+      }
       
-      numerator <- 1/(dists**power)
-      denominator <- sum(1/(dists**power))
       fractions_of_depletions <- numerator/denominator
       
       return(list(fractions_of_depletions,
@@ -1132,7 +1150,16 @@ calculate_stream_depletions <- function(streams,
         
         #-------------------------------------------------------------------------------
         # find which intersections get what depletion fraction
-        apportioned_depletions <- voronoi_intersected_areas/well_voronoi_area
+        if(geologic_apportionment == FALSE){
+          apportioned_depletions <- voronoi_intersected_areas/well_voronoi_area
+        } else {
+          K <- as.vector(unlist(st_drop_geometry(wells[i,well_transmissivity_key])))
+          K_prime <- as.vector(unlist(st_drop_geometry(closest_stream_points[,stream_transmissivity_key])))
+          apportioned_depletions <- (voronoi_intersected_areas*(K_prime/K))/sum((voronoi_intersected_areas*(K_prime/K)))
+        }
+        
+        
+        
         apportioned_depletions <- data.frame(dep = apportioned_depletions,
                                              key = closest_voronoi_intersection$key)
         #-------------------------------------------------------------------------------
@@ -1278,48 +1305,105 @@ calculate_stream_depletions <- function(streams,
       reaches <- as.vector(unlist(reaches))
       #-------------------------------------------------------------------------------
       
-      #-------------------------------------------------------------------------------
-      # get all the points per reach
-      n_points_per_reach_proximity <- split(stream_points_geometry,
-                                            st_drop_geometry(stream_points_geometry[ ,stream_id_key]))
-      n_points_per_reach_proximity <- n_points_per_reach_proximity[reaches]
-      #-------------------------------------------------------------------------------
       
       #-------------------------------------------------------------------------------
-      # get sum per reach of the point distances to the well
-      dists <- lapply(n_points_per_reach_proximity, function(x){
-        s1 <- st_distance(well,
-                          x)
-        sum(as.vector(unlist(s1)))
-      })
-      dists <- as.vector(unlist(dists))
+      if(geologic_apportionment == FALSE){
+        #-------------------------------------------------------------------------------
+        # get all the points per reach
+        n_points_per_reach_proximity <- split(stream_points_geometry,
+                                              st_drop_geometry(stream_points_geometry[ ,stream_id_key]))
+        n_points_per_reach_proximity <- n_points_per_reach_proximity[reaches]
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # get sum per reach of the point distances to the well
+        dists <- lapply(n_points_per_reach_proximity, function(x){
+          s1 <- st_distance(well,
+                            x)
+          sum(as.vector(unlist(s1)))
+        })
+        dists <- as.vector(unlist(dists))
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # repeat above but with all points
+        n_points_per_reach_all <- split(stream_points_geometry,
+                                        st_drop_geometry(stream_points_geometry[ ,stream_id_key]))
+        n_points_per_reach_all <- n_points_per_reach_all[reaches]
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # repeat above but with all points
+        dists_all <- lapply(n_points_per_reach_all, function(x){
+          s1 <- st_distance(well,
+                            x)
+          sum(as.vector(unlist(s1)))
+        })
+        dists_all <- as.vector(unlist(dists_all))
+        #-------------------------------------------------------------------------------
+        
+        
+        #-------------------------------------------------------------------------------
+        numerator <- 1/(dists**power)
+        denominator <- sum(1/(dists_all**power))
+        fractions_of_depletions <- numerator/denominator
+        #-------------------------------------------------------------------------------
+      } else {
+        
+        #-------------------------------------------------------------------------------
+        # get all the points per reach
+        n_points_per_reach_proximity <- split(stream_points_geometry,
+                                              st_drop_geometry(stream_points_geometry[ ,stream_id_key]))
+        n_points_per_reach_proximity <- n_points_per_reach_proximity[reaches]
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        K <- as.vector(unlist(st_drop_geometry(well[well_transmissivity_key])))
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # get sum per reach of the point distances to the well
+        dists <- lapply(n_points_per_reach_proximity, function(x){
+          s1 <- st_distance(well,
+                            x)
+          sum(as.vector(unlist(s1)))
+        })
+        dists <- as.vector(unlist(dists))
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # repeat above but with all points
+        n_points_per_reach_all <- split(stream_points_geometry,
+                                        st_drop_geometry(stream_points_geometry[ ,stream_id_key]))
+        n_points_per_reach_all <- n_points_per_reach_all[reaches]
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # repeat above but with all points
+        dists_all <- lapply(n_points_per_reach_all, function(x){
+          s1 <- st_distance(well,
+                            x)
+          sum(as.vector(unlist(s1)))
+        })
+        dists_all <- as.vector(unlist(dists_all))
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        K_prime <- lapply(n_points_per_reach_all, function(x){
+          
+          mean(as.vector(unlist(st_drop_geometry(x[,stream_transmissivity_key]))))
+        })
+        K_prime <- as.vector(unlist(K_prime))
+        #-------------------------------------------------------------------------------
+          
+
+        #-------------------------------------------------------------------------------
+        numerator <- (1/(dists**power))*(K_prime/K)
+        denominator <- sum((1/(dists_all**power))*(K_prime/K))
+        fractions_of_depletions <- numerator/denominator
+        #-------------------------------------------------------------------------------
+      }
       #-------------------------------------------------------------------------------
-      
-      #-------------------------------------------------------------------------------
-      # repeat above but with all points
-      n_points_per_reach_all <- split(stream_points_geometry,
-                                      st_drop_geometry(stream_points_geometry[ ,stream_id_key]))
-      n_points_per_reach_all <- n_points_per_reach_all[reaches]
-      #-------------------------------------------------------------------------------
-      
-      #-------------------------------------------------------------------------------
-      # repeat above but with all points
-      dists_all <- lapply(n_points_per_reach_all, function(x){
-        s1 <- st_distance(well,
-                          x)
-        sum(as.vector(unlist(s1)))
-      })
-      dists_all <- as.vector(unlist(dists_all))
-      #-------------------------------------------------------------------------------
-      
-      
-      #-------------------------------------------------------------------------------
-      numerator <- 1/(dists**power)
-      denominator <- sum(1/(dists_all**power))
-      fractions_of_depletions <- numerator/denominator
-      #-------------------------------------------------------------------------------
-      
-      
       return(list(fractions_of_depletions,
                   reaches))
     }
@@ -1446,7 +1530,7 @@ calculate_stream_depletions <- function(streams,
                                                    stream_points_geometry = stream_points_geometry,
                                                    reach_impact_frac = reach_impact_frac,
                                                    wells = wells,
-                                                   transmissivity_key = transmissivity_key,
+                                                   well_transmissivity_key = well_transmissivity_key,
                                                    stor_coef_key = stor_coef_key)
   {
     #===========================================================================================
@@ -1694,7 +1778,7 @@ calculate_stream_depletions <- function(streams,
                                   stream_points_geometry[points[j], ])
           distance <- as.numeric(distance)
           distances[[counter]] <- distance
-          transmissivity <- as.numeric(st_drop_geometry(wells[j,transmissivity_key]))
+          transmissivity <- as.numeric(st_drop_geometry(wells[j,well_transmissivity_key]))
           stor_coef <- as.numeric(st_drop_geometry(wells[j, stor_coef_key]))
           #-------------------------------------------------------------------------------
           
@@ -1832,7 +1916,7 @@ calculate_stream_depletions <- function(streams,
                                                  stream_points_geometry = stream_points_geometry,
                                                  reach_impact_frac = reach_impact_frac,
                                                  wells = wells,
-                                                 transmissivity_key = transmissivity_key,
+                                                 well_transmissivity_key = well_transmissivity_key,
                                                  stor_coef_key = stor_coef_key,
                                                  lambda_key = lambda_key)
   {
@@ -2132,7 +2216,7 @@ calculate_stream_depletions <- function(streams,
           distance <- st_distance(wells[j, ],
                                   stream_points_geometry[points[j], ])
           distance <- as.numeric(distance)
-          transmissivity <- as.numeric(st_drop_geometry(wells[j, transmissivity_key]))
+          transmissivity <- as.numeric(st_drop_geometry(wells[j, well_transmissivity_key]))
           stor_coef <- as.numeric(st_drop_geometry(wells[j, stor_coef_key]))
           
           
@@ -2288,7 +2372,7 @@ calculate_stream_depletions <- function(streams,
                                                     stream_points_geometry = stream_points_geometry,
                                                     reach_impact_frac = reach_impact_frac,
                                                     wells = wells,
-                                                    transmissivity_key = transmissivity_key,
+                                                    well_transmissivity_key = well_transmissivity_key,
                                                     stor_coef_key = stor_coef_key,
                                                     leakance_key = leakance_key)
   {
@@ -2590,7 +2674,7 @@ calculate_stream_depletions <- function(streams,
           distance <- st_distance(wells[j, ],
                                   stream_points_geometry[points[j], ])
           distance <- as.numeric(distance)
-          transmissivity <- as.numeric(st_drop_geometry(wells[j, transmissivity_key]))
+          transmissivity <- as.numeric(st_drop_geometry(wells[j, well_transmissivity_key]))
           stor_coef <- as.numeric(st_drop_geometry(wells[j, stor_coef_key]))
           
           
@@ -2805,6 +2889,7 @@ calculate_stream_depletions <- function(streams,
       id_list <- list()
       lambda_list <- list()
       leakance_list <- list()
+      stream_transmissivity_list <- list()
       for(i in 1:nrow(streams)){
         coords <- Extract_SF_Linestring_Vertices(streams$geometry[i])
         stream_points_list[[i]] <- cbind(coords[[2]],
@@ -2821,6 +2906,11 @@ calculate_stream_depletions <- function(streams,
         if(is.null(leakance_key) == FALSE){
           leakance_list[[i]] <- rep(st_drop_geometry(streams[i,leakance_key]),
                                     length(coords[[1]]))
+        }
+        
+        if(is.null(stream_transmissivity_key) == FALSE){
+          stream_transmissivity_list[[i]] <- rep(st_drop_geometry(streams[i,stream_transmissivity_key]),
+                                                 length(coords[[1]]))
         }
         
         average_length[[i]] <- length(coords[[1]])
@@ -2854,6 +2944,12 @@ calculate_stream_depletions <- function(streams,
         cnams <- colnames(stream_points_geometry)
         stream_points_geometry <- cbind(unlist(leakance_list), stream_points_geometry)
         colnames(stream_points_geometry) <- c(leakance_key, cnams)
+      }
+      
+      if(is.null(stream_transmissivity_key) == FALSE){
+        cnams <- colnames(stream_points_geometry)
+        stream_points_geometry <- cbind(unlist(stream_transmissivity_list), stream_points_geometry)
+        colnames(stream_points_geometry) <- c(stream_transmissivity_key, cnams)
       }
       #-------------------------------------------------------------------------------
       
@@ -3033,6 +3129,12 @@ calculate_stream_depletions <- function(streams,
                               'Well apportionment criteria: ',
                               str_to_title(apportionment_criteria)),
                con = log_file)
+    
+    if(geologic_apportionment == TRUE){
+      writeLines(text = sprintf('%s',
+                                'Geologic appoortionment set to TRUE'),
+                 con = log_file)
+    }
     #-------------------------------------------------------------------------------
     
     
@@ -3140,7 +3242,7 @@ calculate_stream_depletions <- function(streams,
   calculate_stream_depletion_per_reach <- function(closest_points_per_segment = closest_points_per_segment,
                                                    stream_points_geometry = stream_points_geometry,
                                                    wells = wells,
-                                                   transmissivity_key = transmissivity_key,
+                                                   well_transmissivity_key = well_transmissivity_key,
                                                    stor_coef_key = stor_coef_key,
                                                    lambda_key = lambda_key,
                                                    leakance_key = leakance_key,
@@ -3167,7 +3269,7 @@ calculate_stream_depletions <- function(streams,
                                                      reach_impact_frac = reach_impact_frac,
                                                      stream_points_geometry = stream_points_geometry,
                                                      wells = wells,
-                                                     transmissivity_key = transmissivity_key,
+                                                     well_transmissivity_key = well_transmissivity_key,
                                                      stor_coef_key = stor_coef_key)
 
     } else if (str_to_title(analytical_model) %in% c('Hunt')){
@@ -3175,7 +3277,7 @@ calculate_stream_depletions <- function(streams,
                                                    stream_points_geometry = stream_points_geometry,
                                                    reach_impact_frac = reach_impact_frac,
                                                    wells = wells,
-                                                   transmissivity_key = transmissivity_key,
+                                                   well_transmissivity_key = well_transmissivity_key,
                                                    stor_coef_key = stor_coef_key,
                                                    lambda_key = lambda_key)
 
@@ -3184,7 +3286,7 @@ calculate_stream_depletions <- function(streams,
                                                       stream_points_geometry = stream_points_geometry,
                                                       reach_impact_frac = reach_impact_frac,
                                                       wells = wells,
-                                                      transmissivity_key = transmissivity_key,
+                                                      well_transmissivity_key = well_transmissivity_key,
                                                       stor_coef_key = stor_coef_key,
                                                       leakance_key = leakance_key)
 
@@ -3343,8 +3445,8 @@ calculate_stream_depletions <- function(streams,
   if(str_to_title(analytical_model) == 'Glover' &
      (is.null(stor_coef_key) == TRUE |
      !stor_coef_key %in% colnames(wells)) |
-     (is.null(transmissivity_key) == TRUE |
-      !transmissivity_key %in% colnames(wells))){
+     (is.null(well_transmissivity_key) == TRUE |
+      !well_transmissivity_key %in% colnames(wells))){
     #-------------------------------------------------------------------------------
     writeLines(text = sprintf('%s',
                               paste0('Identifying column for storage coefficient or transmissivity in ',
@@ -3505,6 +3607,56 @@ calculate_stream_depletions <- function(streams,
                 'exiting program ...'))
     #-------------------------------------------------------------------------------
   }
+    
+    
+  if(geologic_apportionment == TRUE &
+     is.null(stream_transmissivity_key) == FALSE){
+    if(!stream_transmissivity_key %in% colnames(streams) == TRUE){
+      #-------------------------------------------------------------------------------
+      writeLines(text = sprintf('%s',
+                                paste0('Geologic apportionment selected but stream transmissivity key of \'',
+                                       stream_transmissivity_key,
+                                       '\' not present in stream set')),
+                 con = log_file)
+      writeLines(text = sprintf('%s',
+                                'Exiting program ...'),
+                 con = log_file)
+      close(log_file)
+      #-------------------------------------------------------------------------------
+      
+      
+      #-------------------------------------------------------------------------------
+      stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
+                  'Geologic apportionment selected but stream transmissivity key of \'',
+                  stream_transmissivity_key,
+                  '\' not present in stream set\n',
+                  'exiting program ...'))
+      #-------------------------------------------------------------------------------
+    }
+  }
+    
+    
+  if(geologic_apportionment == TRUE &
+     is.null(stream_transmissivity_key) == TRUE){
+    if(!stream_transmissivity_key %in% colnames(streams) == TRUE){
+      #-------------------------------------------------------------------------------
+      writeLines(text = sprintf('%s',
+                                paste0('Geologic apportionment selected but stream transmissivity key not given')),
+                 con = log_file)
+      writeLines(text = sprintf('%s',
+                                'Exiting program ...'),
+                 con = log_file)
+      close(log_file)
+      #-------------------------------------------------------------------------------
+      
+      
+      #-------------------------------------------------------------------------------
+      stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
+                  'Geologic apportionment selected but stream transmissivity key not given\n',
+                  'exiting program ...'))
+      #-------------------------------------------------------------------------------
+    }
+  }  
   #-------------------------------------------------------------------------------
   
   
@@ -3774,7 +3926,7 @@ calculate_stream_depletions <- function(streams,
     output <- calculate_stream_depletion_per_reach(closest_points_per_segment = closest_points_per_segment,
                                                    stream_points_geometry = stream_points_geometry,
                                                    wells = wells,
-                                                   transmissivity_key = transmissivity_key,
+                                                   well_transmissivity_key = well_transmissivity_key,
                                                    stor_coef_key = stor_coef_key,
                                                    lambda_key = lambda_key,
                                                    leakance_key = leakance_key,

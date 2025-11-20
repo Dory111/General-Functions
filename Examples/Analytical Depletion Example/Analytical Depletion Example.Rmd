@@ -312,7 +312,7 @@ calculate_stream_depletions(streams = Shasta_Streams,
                             data_out_dir = file.path(getwd(),'Output'),
                             diag_out_dir = file.path(getwd(),'Output'),
                             stor_coef_key = 'Stor', # where to find storage coef in well set
-                            transmissivity_key = 'Tr') # where to find transmissivity in well set
+                            well_transmissivity_key = 'Tr') # where to find transmissivity in well set
 ```
 <br/>
 <br/>
