@@ -926,14 +926,14 @@ calculate_stream_depletions <- function(streams,
         closest_points <- stream_points_geometry[closest_points_per_well, ]
         reaches <- st_drop_geometry(stream_points_geometry[closest_points_per_well,stream_id_key])
         reaches <- as.vector(unlist(reaches))
-        K_prime <- as.vector(unlist(st_drop_geometry(stream_points_geometry[1,stream_transmissivity_key])))
+        TR_prime <- as.vector(unlist(st_drop_geometry(stream_points_geometry[1,stream_transmissivity_key])))
         
         dists <- as.vector(st_distance(well,
                                        st_geometry(closest_points)))
-        K <- as.vector(unlist(st_drop_geometry(well[,well_transmissivity_key])))
+        TR <- as.vector(unlist(st_drop_geometry(well[,well_transmissivity_key])))
         
-        numerator <- (1/(dists**power))*(K_prime/K)
-        denominator <- sum((1/(dists**power))*(K_prime/K))
+        numerator <- (1/(dists**power))*(TR_prime/TR)
+        denominator <- sum((1/(dists**power))*(TR_prime/TR))
       }
       
       fractions_of_depletions <- numerator/denominator
@@ -1154,9 +1154,9 @@ calculate_stream_depletions <- function(streams,
         if(geologic_apportionment == FALSE){
           apportioned_depletions <- voronoi_intersected_areas/well_voronoi_area
         } else {
-          K <- as.vector(unlist(st_drop_geometry(wells[i,well_transmissivity_key])))
-          K_prime <- as.vector(unlist(st_drop_geometry(closest_stream_points[,stream_transmissivity_key])))
-          apportioned_depletions <- (voronoi_intersected_areas*(K_prime/K))/sum((voronoi_intersected_areas*(K_prime/K)))
+          TR <- as.vector(unlist(st_drop_geometry(wells[i,well_transmissivity_key])))
+          TR_prime <- as.vector(unlist(st_drop_geometry(closest_stream_points[,stream_transmissivity_key])))
+          apportioned_depletions <- (voronoi_intersected_areas*(TR_prime/TR))/sum((voronoi_intersected_areas*(TR_prime/TR)))
         }
         
         
@@ -1360,7 +1360,7 @@ calculate_stream_depletions <- function(streams,
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
-        K <- as.vector(unlist(st_drop_geometry(well[well_transmissivity_key])))
+        TR <- as.vector(unlist(st_drop_geometry(well[well_transmissivity_key])))
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
@@ -1391,17 +1391,17 @@ calculate_stream_depletions <- function(streams,
         #-------------------------------------------------------------------------------
         
         #-------------------------------------------------------------------------------
-        K_prime <- lapply(n_points_per_reach_all, function(x){
+        TR_prime <- lapply(n_points_per_reach_all, function(x){
           
           mean(as.vector(unlist(st_drop_geometry(x[,stream_transmissivity_key]))))
         })
-        K_prime <- as.vector(unlist(K_prime))
+        TR_prime <- as.vector(unlist(TR_prime))
         #-------------------------------------------------------------------------------
           
 
         #-------------------------------------------------------------------------------
-        numerator <- (1/(dists**power))*(K_prime/K)
-        denominator <- sum((1/(dists_all**power))*(K_prime/K))
+        numerator <- (1/(dists**power))*(TR_prime/TR)
+        denominator <- sum((1/(dists_all**power))*(TR_prime/TR))
         fractions_of_depletions <- numerator/denominator
         #-------------------------------------------------------------------------------
       }
