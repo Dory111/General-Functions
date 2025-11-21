@@ -2899,18 +2899,24 @@ calculate_stream_depletions <- function(streams,
                             length(coords[[1]]))
         
         if(is.null(lambda_key) == FALSE){
-          lambda_list[[i]] <- rep(st_drop_geometry(streams[i,lambda_key]),
-                                  length(coords[[1]]))
+          if(lambda_key %in% colnames(streams)){
+            lambda_list[[i]] <- rep(st_drop_geometry(streams[i,lambda_key]),
+                                    length(coords[[1]]))
+          }
         }
 
         if(is.null(leakance_key) == FALSE){
-          leakance_list[[i]] <- rep(st_drop_geometry(streams[i,leakance_key]),
-                                    length(coords[[1]]))
+          if(leakance_key %in% colnames(streams)){
+            leakance_list[[i]] <- rep(st_drop_geometry(streams[i,leakance_key]),
+                                      length(coords[[1]]))
+          }
         }
         
         if(is.null(stream_transmissivity_key) == FALSE){
-          stream_transmissivity_list[[i]] <- rep(st_drop_geometry(streams[i,stream_transmissivity_key]),
-                                                 length(coords[[1]]))
+          if(stream_transmissivity_key %in% colnames(streams)){
+            stream_transmissivity_list[[i]] <- rep(st_drop_geometry(streams[i,stream_transmissivity_key]),
+                                                   length(coords[[1]]))
+          }
         }
         
         average_length[[i]] <- length(coords[[1]])
@@ -2935,21 +2941,27 @@ calculate_stream_depletions <- function(streams,
       colnames(stream_points_geometry) <- c(stream_id_key, cnams)
       
       if(is.null(lambda_key) == FALSE){
-        cnams <- colnames(stream_points_geometry)
-        stream_points_geometry <- cbind(unlist(lambda_list), stream_points_geometry)
-        colnames(stream_points_geometry) <- c(lambda_key, cnams)
+        if(lambda_key %in% colnames(streams)){
+          cnams <- colnames(stream_points_geometry)
+          stream_points_geometry <- cbind(unlist(lambda_list), stream_points_geometry)
+          colnames(stream_points_geometry) <- c(lambda_key, cnams)
+        }
       }
       
       if(is.null(leakance_key) == FALSE){
-        cnams <- colnames(stream_points_geometry)
-        stream_points_geometry <- cbind(unlist(leakance_list), stream_points_geometry)
-        colnames(stream_points_geometry) <- c(leakance_key, cnams)
+        if(leakance_key %in% colnames(streams)){
+          cnams <- colnames(stream_points_geometry)
+          stream_points_geometry <- cbind(unlist(leakance_list), stream_points_geometry)
+          colnames(stream_points_geometry) <- c(leakance_key, cnams)
+        }
       }
       
       if(is.null(stream_transmissivity_key) == FALSE){
-        cnams <- colnames(stream_points_geometry)
-        stream_points_geometry <- cbind(unlist(stream_transmissivity_list), stream_points_geometry)
-        colnames(stream_points_geometry) <- c(stream_transmissivity_key, cnams)
+        if(stream_transmissivity_key %in% colnames(streams)){
+          cnams <- colnames(stream_points_geometry)
+          stream_points_geometry <- cbind(unlist(stream_transmissivity_list), stream_points_geometry)
+          colnames(stream_points_geometry) <- c(stream_transmissivity_key, cnams)
+        }
       }
       #-------------------------------------------------------------------------------
       
