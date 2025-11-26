@@ -422,19 +422,30 @@ to use for the calculation of stream depletions. Accepts <em>‘glover’,
 are equivalent under the special case that <span class="math inline">\(\lambda = 2\frac{T}{L}\)</span> according to
 Reeves (2008). <br /> <br />
 <b><font size="3">depletion_potential_criteria</font></b>:
-<em>char</em> default <em>‘fractional’</em>, describes what how to
-average fractional depletions. Accepts <em>‘global’, ‘fractional’,
+<em>char</em> default <em>‘fractional’</em>, describes how to average
+fractional depletions. Accepts <em>‘global’, ‘fractional’,
 ‘fractional+pumping’</em>,<em>‘distance’</em>,<em>‘fractional+distance’</em>,<em>‘all’</em>.
 <em>‘Global’</em> is equivalent to saying at each timestep take the
 average of depletion potential for all wells effecting reach ‘r’.
 <em>‘Fractional’</em> takes a weighted average by frac/mean(frac) from
 wells ‘w’ to reach ‘r’. <em>‘Fractional+pumping’</em> takes a weighted
 average by (pumping * frac)/mean(pumping * frac) from wells ‘w’ to reach
-‘r’. etc.. <br /> <br /> <b><font size="3">data_out_dir</font></b>:
-<em>char</em> default <em>getwd()</em>, describes where to place the
-output data. <br /> <br /> <b><font size="3">diag_out_dir</font></b>:
-<em>char</em> default <em>getwd()</em>, describes where to place the
-diagnostic data (currently limited to log.txt). <br /> <br />
+‘r’. etc.. <br /> <br />
+<b><font size="3">sdf_averaging_criteria</font></b>: <em>char</em>
+default <em>‘fractional’</em>, describes what how to average calculated
+sdf (units of time). Accepts <em>‘global’, ‘fractional’,
+‘fractional+pumping’</em>. <em>‘Global’</em> is equivalent to saying at
+each timestep take the average of depletion potential for all wells
+effecting reach ‘r’. <em>‘Fractional’</em> takes a weighted average by
+frac/mean(frac) from wells ‘w’ to reach ‘r’.
+<em>‘Fractional+pumping’</em> takes a weighted average by (pumping *
+frac)/mean(pumping * frac) from wells ‘w’ to reach ‘r’. sdf defined by
+Jenkins (1968) as <span class="math inline">\(\frac{d^2S}{T}\)</span>.
+<br /> <br /> <b><font size="3">data_out_dir</font></b>: <em>char</em>
+default <em>getwd()</em>, describes where to place the output data.
+<br /> <br /> <b><font size="3">diag_out_dir</font></b>: <em>char</em>
+default <em>getwd()</em>, describes where to place the diagnostic data
+(currently limited to log.txt). <br /> <br />
 <b><font size="3">suppress_loading_bar</font></b>: <em>boolean</em>
 default <em>TRUE</em>, describes whether to suppress loading bars in
 console. Value of <em>TRUE</em> does not give loading bars. <br /> <br />
@@ -481,7 +492,8 @@ slow down processing. Default taken from streamDepletr package by Zipper
 <p>Glover and Balmer (1954) <a href="https://doi.org/10.1029/TR035i003p00468" class="uri">https://doi.org/10.1029/TR035i003p00468</a> <br /> Hantush
 (1965) <a href="https://doi.org/10.1029/JZ070i012p02829" class="uri">https://doi.org/10.1029/JZ070i012p02829</a> <br /> Hunt
 (1999) <a href="https://doi.org/10.1111/j.1745-6584.1999.tb00962.x" class="uri">https://doi.org/10.1111/j.1745-6584.1999.tb00962.x</a> <br />
-Reeves (2008) <a href="https://doi.org/10.3133/ofr20081166" class="uri">https://doi.org/10.3133/ofr20081166</a> <br /> Zipper (2019)
+Jenkins (1968) <a href="https://pubs.usgs.gov/twri/twri4d1/pdf/twri_4-D1_a.pdf" class="uri">https://pubs.usgs.gov/twri/twri4d1/pdf/twri_4-D1_a.pdf</a>
+<br /> Reeves (2008) <a href="https://doi.org/10.3133/ofr20081166" class="uri">https://doi.org/10.3133/ofr20081166</a> <br /> Zipper (2019)
 <a href="https://cran.r-project.org/web/packages/streamDepletr/index.html" class="uri">https://cran.r-project.org/web/packages/streamDepletr/index.html</a>
 <br /> Zipper et al. (2019) <a href="https://doi.org/10.1029/2018WR024403" class="uri">https://doi.org/10.1029/2018WR024403</a> <br /></p>
 </div>

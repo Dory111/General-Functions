@@ -25,6 +25,7 @@ calculate_stream_depletions <- function(streams,
                                         geologic_apportionment = FALSE,
                                         analytical_model = 'glover',
                                         depletion_potential_criteria = 'fractional',
+                                        sdf_averaging_criteria = 'fractional',
                                         data_out_dir = getwd(),
                                         diag_out_dir = getwd(),
                                         suppress_loading_bar = TRUE,
@@ -82,7 +83,7 @@ calculate_stream_depletions <- function(streams,
   
   
   #===========================================================================================
-  # install required packages if not present
+  #
   #===========================================================================================
   calculate_depletion_potential <- function(depletion_potential_criteria = depletion_potential_criteria,
                                             depletions_potential_per_well_total = depletions_potential_per_well_total,
@@ -226,6 +227,77 @@ calculate_stream_depletions <- function(streams,
     return(average_fractional_depletions)
   }
   # ------------------------------------------------------------------------------------------------
+  
+  
+  
+  #===========================================================================================
+  # 
+  #===========================================================================================
+  calculate_average_sdf <- function(depletion_potential_criteria = depletion_potential_criteria,
+                                    sdf_vec = Jenk_SDF_per_well_total,
+                                    fracs = fracs,
+                                    pumping = pumping)
+  {
+    # ------------------------------------------------------------------------------------------------
+    if(str_to_title(sdf_averaging_criteria) == 'Global'){
+      average_sdf <- mean(sdf_vec, na.rm = TRUE)
+      
+    } 
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    if(str_to_title(sdf_averaging_criteria) == 'Fractional'){
+      w <-  fracs/mean(fracs, na.rm = T)
+      rm <- which(is.na(w) == TRUE &
+                    is.nan(w) == FALSE)
+      if(length(rm) > 0){
+        w <- w[-c(rm)]
+      } else {}
+      
+      if(all(is.nan(w)) == TRUE){
+        w <- rep(1,length(w))
+      }
+      
+      x <- sdf_vec
+      x <- x[is.na(x) == FALSE]
+      
+      average_sdf <- weighted_mean(x = x,
+                                   w = w, na.rm = T)
+      
+    } 
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    if(str_to_title(sdf_averaging_criteria) == 'Fractional+Pumping'){
+      
+      w <- (pumping[,k] * fracs)/mean(pumping[,k] * fracs, na.rm = T)
+      rm <- which(is.na(w) == TRUE &
+                    is.nan(w) == FALSE)
+      if(length(rm) > 0){
+        w <- w[-c(rm)]
+      } else {}
+      
+      if(all(is.nan(w)) == TRUE){
+        w <- rep(1,length(w))
+      }
+      
+      x <- sdf_vec
+      x <- x[is.na(x) == FALSE]
+      
+      
+      average_sdf <- weighted_mean(x = x,
+                                   w = w, na.rm = T)
+    } 
+    # ------------------------------------------------------------------------------------------------
+    
+    return(average_sdf)
+  }
+  # ------------------------------------------------------------------------------------------------
+  
+  
+  
+  
+  
   
   
   #===========================================================================================
@@ -1556,7 +1628,6 @@ calculate_stream_depletions <- function(streams,
         QA <- erfc(sqrt((stor_coef * distance**2)/
                           (4*transmissivity*elapsed_time)))
         
-        
         return(QA)
       }
       #-------------------------------------------------------------------------------
@@ -1709,8 +1780,10 @@ calculate_stream_depletions <- function(streams,
 
       #-------------------------------------------------------------------------------
       # sum and return
+      Jenk_SDF <- (distance*distance*stor_coef)/transmissivity
       return(list(depletions,
-                  fractions))
+                  fractions,
+                  Jenk_SDF))
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
@@ -1730,6 +1803,7 @@ calculate_stream_depletions <- function(streams,
     depletions_per_reach <- list()
     depletions_potential_per_reach <- list()
     pump_frac_per_reach <- list()
+    jenk_sdf_per_reach <- list()
     for(i in 1:ncol(closest_points_per_segment)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -1767,6 +1841,7 @@ calculate_stream_depletions <- function(streams,
         depletions_potential_per_well <- list()
         pump_frac_per_well <- list()
         distances <- list()
+        Jenk_SDF_per_well <- list()
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -1793,11 +1868,13 @@ calculate_stream_depletions <- function(streams,
                                                  QW = pumping[j, ])
           Q_final <- Q_out[[1]]*fracs[j]
           Q_fraction <- Q_out[[2]]
+          Jenk_SDF <- Q_out[[3]]
           #-------------------------------------------------------------------------------
           
           #-------------------------------------------------------------------------------
           depletions_per_well[[counter]] <- Q_final
           depletions_potential_per_well[[counter]] <- Q_fraction
+          Jenk_SDF_per_well[[counter]] <- Jenk_SDF
           pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
           #-------------------------------------------------------------------------------
         }
@@ -1807,6 +1884,7 @@ calculate_stream_depletions <- function(streams,
         depletions_total <- do.call(cbind, depletions_per_well)
         pump_frac_per_well_total <- do.call(cbind, pump_frac_per_well)
         depletions_potential_per_well_total <- do.call(cbind, depletions_potential_per_well)
+        Jenk_SDF_per_well_total <- do.call(rbind, Jenk_SDF_per_well)
         #-------------------------------------------------------------------------------
         
         average_fractional_depletions <- calculate_depletion_potential(depletion_potential_criteria = depletion_potential_criteria,
@@ -1814,7 +1892,12 @@ calculate_stream_depletions <- function(streams,
                                                                        distances = distances,
                                                                        fracs = fracs,
                                                                        pumping = pumping)
+        average_Jenk_SDF <- calculate_average_sdf(depletion_potential_criteria = depletion_potential_criteria,
+                                                  sdf_vec = Jenk_SDF_per_well_total,
+                                                  fracs = fracs,
+                                                  pumping = pumping)
         
+        jenk_sdf_per_reach[[i]] <- average_Jenk_SDF
         depletions_potential_per_reach[[i]] <- average_fractional_depletions
         depletions_per_reach[[i]] <- base::rowSums(depletions_total)
         pump_frac_per_reach[[i]] <- base::rowSums(pump_frac_per_well_total)
@@ -1824,6 +1907,7 @@ calculate_stream_depletions <- function(streams,
         depletions_per_reach[[i]] <- rep(0, ncol(pumping)) # reach has no depletions
         pump_frac_per_reach[[i]] <- rep(0, ncol(pumping))
         depletions_potential_per_reach[[i]] <- rep(0, ncol(pumping))
+        jenk_sdf_per_reach[[i]] <- NA
       }
       #-------------------------------------------------------------------------------
     }
@@ -1898,9 +1982,11 @@ calculate_stream_depletions <- function(streams,
     depletions_potential_per_reach <- do.call(rbind, depletions_potential_per_reach)
     depletions_per_reach <- do.call(rbind, depletions_per_reach)
     pump_frac_per_reach <- do.call(rbind, pump_frac_per_reach)
+    jenk_sdf_per_reach <- do.call(rbind, jenk_sdf_per_reach)
     return(list(depletions_per_reach,
                 depletions_potential_per_reach,
-                pump_frac_per_reach))
+                pump_frac_per_reach,
+                jenk_sdf_per_reach))
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
@@ -2146,8 +2232,10 @@ calculate_stream_depletions <- function(streams,
       
       #-------------------------------------------------------------------------------
       # sum and return
+      Jenk_SDF <- (distance*distance*stor_coef)/transmissivity
       return(list(depletions,
-                  fractions))
+                  fractions,
+                  Jenk_SDF))
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
@@ -2167,6 +2255,7 @@ calculate_stream_depletions <- function(streams,
     depletions_per_reach <- list()
     pump_frac_per_reach <- list()
     depletions_potential_per_reach <- list()
+    jenk_sdf_per_reach <- list()
     for(i in 1:ncol(closest_points_per_segment)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -2205,6 +2294,7 @@ calculate_stream_depletions <- function(streams,
         depletions_per_well <- list()
         pump_frac_per_well <- list()
         depletions_potential_per_well <- list()
+        Jenk_SDF_per_well <- list()
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -2242,11 +2332,13 @@ calculate_stream_depletions <- function(streams,
                                                lambda = lambda)
           Q_final <- Q_out[[1]]*fracs[j]
           Q_fraction <- Q_out[[2]]
+          Jenk_SDF <- Q_out[[3]]
           #-------------------------------------------------------------------------------
           
           #-------------------------------------------------------------------------------
           depletions_per_well[[counter]] <- Q_final
           depletions_potential_per_well[[counter]] <- Q_fraction
+          Jenk_SDF_per_well[[counter]] <- Jenk_SDF
           pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
           #-------------------------------------------------------------------------------
         }
@@ -2256,6 +2348,7 @@ calculate_stream_depletions <- function(streams,
         depletions_total <- do.call(cbind, depletions_per_well)
         pump_frac_per_well_total <- do.call(cbind, pump_frac_per_well)
         depletions_potential_per_well_total <- do.call(cbind, depletions_potential_per_well)
+        Jenk_SDF_per_well_total <- do.call(rbind, Jenk_SDF_per_well)
         #-------------------------------------------------------------------------------
         
         average_fractional_depletions <- calculate_depletion_potential(depletion_potential_criteria = depletion_potential_criteria,
@@ -2263,7 +2356,12 @@ calculate_stream_depletions <- function(streams,
                                                                        distances = distances,
                                                                        fracs = fracs,
                                                                        pumping = pumping)
+        average_Jenk_SDF <- calculate_average_sdf(depletion_potential_criteria = depletion_potential_criteria,
+                                                  sdf_vec = Jenk_SDF_per_well_total,
+                                                  fracs = fracs,
+                                                  pumping = pumping)
         
+        jenk_sdf_per_reach[[i]] <- average_Jenk_SDF
         depletions_potential_per_reach[[i]] <- average_fractional_depletions
         depletions_per_reach[[i]] <- base::rowSums(depletions_total)
         pump_frac_per_reach[[i]] <- base::rowSums(pump_frac_per_well_total)
@@ -2273,6 +2371,7 @@ calculate_stream_depletions <- function(streams,
         depletions_per_reach[[i]] <- rep(0, ncol(pumping)) # reach has no depletions
         pump_frac_per_reach[[i]] <- rep(0, ncol(pumping))
         depletions_potential_per_reach[[i]] <- rep(0, ncol(pumping))
+        jenk_sdf_per_reach[[i]] <- NA
       }
       #-------------------------------------------------------------------------------
     }
@@ -2352,9 +2451,11 @@ calculate_stream_depletions <- function(streams,
     depletions_potential_per_reach <- do.call(rbind, depletions_potential_per_reach)
     depletions_per_reach <- do.call(rbind, depletions_per_reach)
     pump_frac_per_reach <- do.call(rbind, pump_frac_per_reach)
+    jenk_sdf_per_reach <- do.call(rbind, jenk_sdf_per_reach)
     return(list(depletions_per_reach,
                 depletions_potential_per_reach,
-                pump_frac_per_reach))
+                pump_frac_per_reach,
+                jenk_sdf_per_reach))
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
@@ -2603,8 +2704,10 @@ calculate_stream_depletions <- function(streams,
       
       #-------------------------------------------------------------------------------
       # sum and return
+      Jenk_SDF <- (distance*distance*stor_coef)/transmissivity
       return(list(depletions,
-                  fractions))
+                  fractions,
+                  Jenk_SDF))
       #-------------------------------------------------------------------------------
     }
     #-------------------------------------------------------------------------------
@@ -2624,6 +2727,7 @@ calculate_stream_depletions <- function(streams,
     depletions_per_reach <- list()
     pump_frac_per_reach <- list()
     depletions_potential_per_reach <- list()
+    jenk_sdf_per_reach <- list()
     for(i in 1:ncol(closest_points_per_segment)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -2662,6 +2766,7 @@ calculate_stream_depletions <- function(streams,
         depletions_per_well <- list()
         pump_frac_per_well <- list()
         depletions_potential_per_well <- list()
+        Jenk_SDF_per_well <- list()
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -2699,12 +2804,14 @@ calculate_stream_depletions <- function(streams,
                                                   leakance = leakance)
           Q_final <- Q_out[[1]]*fracs[j]
           Q_fraction <- Q_out[[2]]
+          Jenk_SDF <- Q_out[[3]]
           #-------------------------------------------------------------------------------
           
           #-------------------------------------------------------------------------------
           depletions_per_well[[counter]] <- Q_final
           depletions_potential_per_well[[counter]] <- Q_fraction
           pump_frac_per_well[[counter]] <- pumping[j, ] * fracs[j]
+          Jenk_SDF_per_well[[counter]] <- Jenk_SDF
           #-------------------------------------------------------------------------------
         }
         #-------------------------------------------------------------------------------
@@ -2713,6 +2820,7 @@ calculate_stream_depletions <- function(streams,
         depletions_total <- do.call(cbind, depletions_per_well)
         pump_frac_per_well_total <- do.call(cbind, pump_frac_per_well)
         depletions_potential_per_well_total <- do.call(cbind, depletions_potential_per_well)
+        Jenk_SDF_per_well_total <- do.call(rbind, Jenk_SDF_per_well)
         #-------------------------------------------------------------------------------
         
         
@@ -2721,7 +2829,12 @@ calculate_stream_depletions <- function(streams,
                                                                        distances = distances,
                                                                        fracs = fracs,
                                                                        pumping = pumping)
+        average_Jenk_SDF <- calculate_average_sdf(depletion_potential_criteria = depletion_potential_criteria,
+                                                  sdf_vec = Jenk_SDF_per_well_total,
+                                                  fracs = fracs,
+                                                  pumping = pumping)
         
+        jenk_sdf_per_reach[[i]] <- average_Jenk_SDF
         depletions_potential_per_reach[[i]] <- average_fractional_depletions
         depletions_per_reach[[i]] <- base::rowSums(depletions_total)
         pump_frac_per_reach[[i]] <- base::rowSums(pump_frac_per_well_total)
@@ -2731,6 +2844,7 @@ calculate_stream_depletions <- function(streams,
         depletions_per_reach[[i]] <- rep(0, ncol(pumping)) # reach has no depletions
         pump_frac_per_reach[[i]] <- rep(0, ncol(pumping))
         depletions_potential_per_reach[[i]] <- rep(0, ncol(pumping))
+        jenk_sdf_per_reach[[i]] <- NA
       }
       #-------------------------------------------------------------------------------
     }
@@ -2810,9 +2924,11 @@ calculate_stream_depletions <- function(streams,
     depletions_potential_per_reach <- do.call(rbind, depletions_potential_per_reach)
     depletions_per_reach <- do.call(rbind, depletions_per_reach)
     pump_frac_per_reach <- do.call(rbind, pump_frac_per_reach)
+    jenk_sdf_per_reach <- do.call(rbind, jenk_sdf_per_reach)
     return(list(depletions_per_reach,
                 depletions_potential_per_reach,
-                pump_frac_per_reach))
+                pump_frac_per_reach,
+                jenk_sdf_per_reach))
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
@@ -3322,6 +3438,11 @@ calculate_stream_depletions <- function(streams,
                                   output[[3]])
     pump_frac_per_reach <- as.data.frame(pump_frac_per_reach)
     colnames(pump_frac_per_reach) <- c('RN', paste0('T',1:(ncol(pump_frac_per_reach)-1)))
+    
+    jenk_sdf_per_reach <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
+                                 output[[4]])
+    jenk_sdf_per_reach <- as.data.frame(jenk_sdf_per_reach)
+    colnames(jenk_sdf_per_reach) <- c('RN', 'T')
     #-------------------------------------------------------------------------------
     
     
@@ -3337,7 +3458,8 @@ calculate_stream_depletions <- function(streams,
     
     return(list(depletions_per_reach,
                 depletions_potential_per_reach,
-                pump_frac_per_reach))
+                pump_frac_per_reach,
+                jenk_sdf_per_reach))
   }
   #-------------------------------------------------------------------------------
   
@@ -3946,6 +4068,7 @@ calculate_stream_depletions <- function(streams,
     depletions_by_reach <- output[[1]]
     depletions_potential_by_reach <- output[[2]]
     pump_frac_by_reach <- output[[3]]
+    jenk_sdf_by_reach <- output[[4]]
     #-------------------------------------------------------------------------------
 
     
@@ -3961,6 +4084,10 @@ calculate_stream_depletions <- function(streams,
     write.csv(pump_frac_by_reach,
               file.path(data_out_dir,
                         paste0('pump_frac_by_reach.csv')),
+              row.names = FALSE)
+    write.csv(jenk_sdf_by_reach,
+              file.path(data_out_dir,
+                        paste0('jenk_sdf_by_reach.csv')),
               row.names = FALSE)
     #-------------------------------------------------------------------------------
 

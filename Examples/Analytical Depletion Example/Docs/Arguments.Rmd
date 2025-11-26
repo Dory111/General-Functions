@@ -65,7 +65,10 @@ options(scipen = 100)
 <b><font size = "3">analytical_model</font></b>: *char* default *'glover'*, describes what analytical model to use for the calculation of stream depletions. Accepts *'glover', 'hunt', 'hantush'*. *'Hunt'* and *'hantush'* models are equivalent under the special case that $\lambda = 2\frac{T}{L}$ according to Reeves (2008).
 <br/>
 <br/>
-<b><font size = "3">depletion_potential_criteria</font></b>: *char* default *'fractional'*, describes what how to average fractional depletions. Accepts *'global', 'fractional', 'fractional+pumping'*,*'distance'*,*'fractional+distance'*,*'all'*. *'Global'* is equivalent to saying at each timestep take the average of depletion potential for all wells effecting reach 'r'. *'Fractional'* takes a weighted average by frac/mean(frac) from wells 'w' to reach 'r'. *'Fractional+pumping'* takes a weighted average by (pumping * frac)/mean(pumping * frac) from wells 'w' to reach 'r'. etc..
+<b><font size = "3">depletion_potential_criteria</font></b>: *char* default *'fractional'*, describes how to average fractional depletions. Accepts *'global', 'fractional', 'fractional+pumping'*,*'distance'*,*'fractional+distance'*,*'all'*. *'Global'* is equivalent to saying at each timestep take the average of depletion potential for all wells effecting reach 'r'. *'Fractional'* takes a weighted average by frac/mean(frac) from wells 'w' to reach 'r'. *'Fractional+pumping'* takes a weighted average by (pumping * frac)/mean(pumping * frac) from wells 'w' to reach 'r'. etc..
+<br/>
+<br/>
+<b><font size = "3">sdf_averaging_criteria</font></b>: *char* default *'fractional'*, describes what how to average calculated sdf (units of time). Accepts *'global', 'fractional', 'fractional+pumping'*. *'Global'* is equivalent to saying at each timestep take the average of depletion potential for all wells effecting reach 'r'. *'Fractional'* takes a weighted average by frac/mean(frac) from wells 'w' to reach 'r'. *'Fractional+pumping'* takes a weighted average by (pumping * frac)/mean(pumping * frac) from wells 'w' to reach 'r'. sdf defined by Jenkins (1968) as $\frac{d^2S}{T}$.
 <br/>
 <br/>
 <b><font size = "3">data_out_dir</font></b>: *char* default *getwd()*, describes where to place the output data.
@@ -107,6 +110,7 @@ Exponential values in the *'hunt'* and *'hantush'* analytical models can often r
 Glover and Balmer (1954) https://doi.org/10.1029/TR035i003p00468 <br/>
 Hantush (1965) https://doi.org/10.1029/JZ070i012p02829 <br/>
 Hunt (1999) https://doi.org/10.1111/j.1745-6584.1999.tb00962.x <br/>
+Jenkins (1968) https://pubs.usgs.gov/twri/twri4d1/pdf/twri_4-D1_a.pdf <br/>
 Reeves (2008) https://doi.org/10.3133/ofr20081166 <br/>
 Zipper (2019) https://cran.r-project.org/web/packages/streamDepletr/index.html <br/>
 Zipper et al. (2019) https://doi.org/10.1029/2018WR024403 <br/>
