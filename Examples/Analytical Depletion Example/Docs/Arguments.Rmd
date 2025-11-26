@@ -71,6 +71,15 @@ options(scipen = 100)
 <b><font size = "3">sdf_averaging_criteria</font></b>: *char* default *'fractional'*, describes what how to average calculated sdf (units of time). Accepts *'global', 'fractional', 'fractional+pumping'*. *'Global'* is equivalent to saying at each timestep take the average of depletion potential for all wells effecting reach 'r'. *'Fractional'* takes a weighted average by frac/mean(frac) from wells 'w' to reach 'r'. *'Fractional+pumping'* takes a weighted average by (pumping * frac)/mean(pumping * frac) from wells 'w' to reach 'r'. sdf defined by Jenkins (1968) as $\frac{d^2S}{T}$.
 <br/>
 <br/>
+<b><font size = "3">custom_sdf_time</font></b>: *char* default *NULL*, describes whether to find the time when the depletions in reach 'r' equal the pumping in well 'w' multiplied by *custom_sdf_time*. Accepts between 0.1 and 0.9 for computational reasons. If set to *NULL* no calculations are done. If set within acceptable range will calculate either by the inverse of the analytical model (for *'glover'*) or by gradient descent (for *'hunt'* or *'hantush'*)
+<br/>
+<br/>
+<b><font size = "3">custom_sdf_convergence_threshold</font></b>: *numeric* default *0.01*, describes the threshold within which an acceptable answer for the custom_sdf_time is found. If kept at default for example, an answer within 0.01 (1%) of the true value will be considered acceptable and returned by the gradient descent method (if found). If analytical model set to *'glover'* is used then this argument does nothing, as the exact inverse of the equation is used.
+<br/>
+<br/>
+<b><font size = "3">n_sdf_convergence_tries</font></b>: *numeric* default *1000*, describes how many tries the gradient descent algorithm should use before returning -9999 when finding the time when the depletions in reach 'r' equal the pumping in well 'w' multiplied by *custom_sdf_time*. If analytical model set to *'glover'* is used then this argument does nothing, as the exact inverse of the equation is used.
+<br/>
+<br/>
 <b><font size = "3">data_out_dir</font></b>: *char* default *getwd()*, describes where to place the output data.
 <br/>
 <br/>

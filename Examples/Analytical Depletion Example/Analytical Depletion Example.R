@@ -26,6 +26,9 @@ calculate_stream_depletions <- function(streams,
                                         analytical_model = 'glover',
                                         depletion_potential_criteria = 'fractional',
                                         sdf_averaging_criteria = 'fractional',
+                                        custom_sdf_convergence_threshold = 0.01,
+                                        custom_sdf_time = NULL,
+                                        n_sdf_convergence_tries = 1000,
                                         data_out_dir = getwd(),
                                         diag_out_dir = getwd(),
                                         suppress_loading_bar = TRUE,
@@ -233,7 +236,7 @@ calculate_stream_depletions <- function(streams,
   #===========================================================================================
   # 
   #===========================================================================================
-  calculate_average_sdf <- function(depletion_potential_criteria = depletion_potential_criteria,
+  calculate_average_sdf <- function(sdf_averaging_criteria = sdf_averaging_criteria,
                                     sdf_vec = Jenk_SDF_per_well_total,
                                     fracs = fracs,
                                     pumping = pumping)
@@ -294,6 +297,199 @@ calculate_stream_depletions <- function(streams,
   }
   # ------------------------------------------------------------------------------------------------
   
+  
+  
+  
+  #===========================================================================================
+  # by gradient descent approximates the inverse of the hunt and hantush model
+  # within some user specified precision of the desired answer
+  #===========================================================================================
+  custom_sdf_gradient_descent <- function(analytical_model = analytical_model,
+                                          custom_sdf_time = custom_sdf_time,
+                                          distance = distance,
+                                          stor_coef = stor_coef,
+                                          transmissivity = transmissivity,
+                                          lambda = NULL,
+                                          leakance = NULL)
+  {
+    #-------------------------------------------------------------------------------
+    # necessary variables for the while loop
+    r <- 0
+    test_time <- 1
+    counter <- 0
+    mod <- ((distance*distance)*stor_coef)/transmissivity
+    history <- c()
+    mod_subtract <- mod/10
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    # if hunt model inverse is to be approximated
+    if(str_to_title(analytical_model) == 'Hunt'){
+      while((r < (custom_sdf_time + custom_sdf_convergence_threshold) &
+             r > (custom_sdf_time - custom_sdf_convergence_threshold)) == FALSE){
+        
+        counter <- counter + 1
+        
+        #-------------------------------------------------------------------------------
+        # assemble terms
+        z <- Rmpfr::mpfr((sqrt((stor_coef * distance* distance)/
+                                 (4*transmissivity*test_time))), prec = prec)
+        t1 <- Rmpfr::erfc(z)
+        
+        
+        t2_a <- Rmpfr::mpfr(((lambda*lambda*test_time)/(4*stor_coef*transmissivity)),  prec = prec)
+        t2_b <- Rmpfr::mpfr(((lambda*distance)/(2*transmissivity)), prec = prec)
+        t2 <- base::exp(t2_a + t2_b)
+        
+        
+        t3_a <- Rmpfr::mpfr((sqrt((lambda*lambda*test_time)/(4*stor_coef*transmissivity))),  prec = prec)
+        t3 <- Rmpfr::erfc(t3_a + z)
+        r <- as.numeric(t1 - (t2*t3))
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # is it reasonable that an answer can be approached?
+        # is transmissivity too low over the given distance that the answer can be approximated
+        # given the precision
+        if(is.nan(r) == FALSE){
+          if(r > (custom_sdf_time + thresh)){
+            test_time <- test_time-(mod*(1-erfc(r-custom_sdf_time)))
+            history <- append(history, '+')
+            if(test_time < 0){
+              test_time <- 1
+            }
+          } else if(r < (custom_sdf_time + thresh)){
+            test_time <- test_time+(mod*(1-erfc(custom_sdf_time-r)))
+            history <- append(history, '-')
+            if(test_time < 0){
+              test_time <- 1
+            }
+          }
+          
+          #-------------------------------------------------------------------------------
+          # if bouncing around the answer but taking too big of step sizes
+          if(length(history) >= 10){
+            if(paste(history[(length(history)-9):length(history)], collapse = '') == paste(rep(c('+','-'),5), collapse = '')|
+               paste(history[(length(history)-9):length(history)], collapse = '') == paste(rep(c('-','+'),5), collapse = '')){
+              mod <- mod - mod_subtract
+              history <- c()
+            }
+            
+            if(paste(history[(length(history)-9):length(history)], collapse = '') == paste(rep(c('-'),10), collapse = '')|
+               paste(history[(length(history)-9):length(history)], collapse = '') == paste(rep(c('+'),10), collapse = '')){
+              mod <- mod*2
+              mod_subtract <- mod/10
+              history <- c()
+            }
+          }
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          # if max tries reached break
+          if(counter == n_sdf_convergence_tries){
+            test_time <- -9999
+            r <- custom_sdf_time
+          } else {}
+          #-------------------------------------------------------------------------------
+        } else {
+          test_time <- -9999
+          r <- custom_sdf_time
+        }
+        #-------------------------------------------------------------------------------
+      }
+      #-------------------------------------------------------------------------------
+    }
+    #-------------------------------------------------------------------------------
+    
+    
+    #-------------------------------------------------------------------------------
+    # if hantush model is to be approximated by gradient descent
+    if(str_to_title(analytical_model) == 'Hantush'){
+      while((r < (custom_sdf_time + custom_sdf_convergence_threshold) &
+             r > (custom_sdf_time - custom_sdf_convergence_threshold)) == FALSE){
+        
+        counter <- counter + 1
+        
+        
+        #-------------------------------------------------------------------------------
+        # assemble terms
+        z <- Rmpfr::mpfr((sqrt((stor_coef * distance* distance)/
+                                 (4*transmissivity*test_time))),  prec = prec)
+        t1 <- Rmpfr::erfc(z)
+        
+        
+        t2_a <- Rmpfr::mpfr(((transmissivity*test_time)/(stor_coef*leakance*leakance)),  prec = prec)
+        t2_b <- Rmpfr::mpfr((distance/leakance), prec = prec)
+        t2 <- base::exp(t2_a + t2_b)
+        
+        
+        t3_a <- Rmpfr::mpfr((sqrt((transmissivity*test_time)/(stor_coef*leakance*leakance))),  prec = prec)
+        t3 <- Rmpfr::erfc(t3_a + z)
+        #-------------------------------------------------------------------------------
+        
+        #-------------------------------------------------------------------------------
+        # fill infinite indices with higher precision numbers
+        r <- as.numeric(t1 - (t2*t3))
+        #-------------------------------------------------------------------------------
+        
+        
+        #-------------------------------------------------------------------------------
+        # is it reasonable that an answer can be approached?
+        # is transmissivity too low over the given distance that the answer can be approximated
+        # given the precision
+        if(is.nan(r) == FALSE){
+          if(r > (custom_sdf_time + thresh)){
+            test_time <- test_time-(mod*(1-erfc(r-custom_sdf_time)))
+            history <- append(history, '+')
+            if(test_time < 0){
+              test_time <- 1
+            }
+          } else if(r < (custom_sdf_time + thresh)){
+            test_time <- test_time+(mod*(1-erfc(custom_sdf_time-r)))
+            history <- append(history, '-')
+            if(test_time < 0){
+              test_time <- 1
+            }
+          }
+          
+          #-------------------------------------------------------------------------------
+          # if bouncing around the answer but taking too big of step sizes
+          if(length(history) >= 10){
+            if(paste(history[(length(history)-9):length(history)], collapse = '') == paste(rep(c('+','-'),5), collapse = '')|
+               paste(history[(length(history)-9):length(history)], collapse = '') == paste(rep(c('-','+'),5), collapse = '')){
+              mod <- mod - mod_subtract
+              history <- c()
+            }
+            
+            if(paste(history[(length(history)-9):length(history)], collapse = '') == paste(rep(c('-'),10), collapse = '')|
+               paste(history[(length(history)-9):length(history)], collapse = '') == paste(rep(c('+'),10), collapse = '')){
+              mod <- mod*2
+              mod_subtract <- mod/10
+              history <- c()
+            }
+          }
+          #-------------------------------------------------------------------------------
+          
+          #-------------------------------------------------------------------------------
+          # if max tries reached break
+          if(counter == n_sdf_convergence_tries){
+            test_time <- -9999
+            r <- custom_sdf_time
+          } else {}
+          #-------------------------------------------------------------------------------
+        } else {
+          test_time <- -9999
+          r <- custom_sdf_time
+        }
+        #-------------------------------------------------------------------------------
+      }
+      #-------------------------------------------------------------------------------
+    }
+    #-------------------------------------------------------------------------------
+    return(test_time)
+  }
+  #-------------------------------------------------------------------------------
   
   
   
@@ -1804,6 +2000,7 @@ calculate_stream_depletions <- function(streams,
     depletions_potential_per_reach <- list()
     pump_frac_per_reach <- list()
     jenk_sdf_per_reach <- list()
+    custom_sdf_per_reach <- list()
     for(i in 1:ncol(closest_points_per_segment)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -1842,6 +2039,7 @@ calculate_stream_depletions <- function(streams,
         pump_frac_per_well <- list()
         distances <- list()
         Jenk_SDF_per_well <- list()
+        custom_SDF_per_well <- list()
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -1869,6 +2067,10 @@ calculate_stream_depletions <- function(streams,
           Q_final <- Q_out[[1]]*fracs[j]
           Q_fraction <- Q_out[[2]]
           Jenk_SDF <- Q_out[[3]]
+          if(is.null(custom_sdf_time) == FALSE){
+            custom_sdf <- (distance*distance*stor_coef)/(4*transmissivity*(erfcinv(custom_sdf_time)**2))
+            custom_SDF_per_well[[counter]] <- custom_sdf
+          }
           #-------------------------------------------------------------------------------
           
           #-------------------------------------------------------------------------------
@@ -1892,7 +2094,7 @@ calculate_stream_depletions <- function(streams,
                                                                        distances = distances,
                                                                        fracs = fracs,
                                                                        pumping = pumping)
-        average_Jenk_SDF <- calculate_average_sdf(depletion_potential_criteria = depletion_potential_criteria,
+        average_Jenk_SDF <- calculate_average_sdf(sdf_averaging_criteria = sdf_averaging_criteria,
                                                   sdf_vec = Jenk_SDF_per_well_total,
                                                   fracs = fracs,
                                                   pumping = pumping)
@@ -1903,11 +2105,24 @@ calculate_stream_depletions <- function(streams,
         pump_frac_per_reach[[i]] <- base::rowSums(pump_frac_per_well_total)
         
         
+        if(is.null(custom_sdf_time) == FALSE){
+          custom_SDF_per_well_total <- do.call(rbind, custom_SDF_per_well)
+          average_custom_SDF <- calculate_average_sdf(sdf_averaging_criteria = sdf_averaging_criteria,
+                                                      sdf_vec = custom_SDF_per_well_total,
+                                                      fracs = fracs,
+                                                      pumping = pumping)
+          custom_sdf_per_reach[[i]] <- average_custom_SDF
+        }
       } else{
         depletions_per_reach[[i]] <- rep(0, ncol(pumping)) # reach has no depletions
         pump_frac_per_reach[[i]] <- rep(0, ncol(pumping))
         depletions_potential_per_reach[[i]] <- rep(0, ncol(pumping))
         jenk_sdf_per_reach[[i]] <- NA
+        
+        
+        if(is.null(custom_sdf_time) == FALSE){
+          custom_sdf_per_reach[[i]] <- NA
+        }
       }
       #-------------------------------------------------------------------------------
     }
@@ -1983,10 +2198,16 @@ calculate_stream_depletions <- function(streams,
     depletions_per_reach <- do.call(rbind, depletions_per_reach)
     pump_frac_per_reach <- do.call(rbind, pump_frac_per_reach)
     jenk_sdf_per_reach <- do.call(rbind, jenk_sdf_per_reach)
+    if(is.null(custom_sdf_time) == TRUE){
+      custom_sdf_per_reach <- NULL
+    } else{
+      custom_sdf_per_reach <- do.call(rbind, custom_sdf_per_reach)
+    }
     return(list(depletions_per_reach,
                 depletions_potential_per_reach,
                 pump_frac_per_reach,
-                jenk_sdf_per_reach))
+                jenk_sdf_per_reach,
+                custom_sdf_per_reach))
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
@@ -2256,6 +2477,7 @@ calculate_stream_depletions <- function(streams,
     pump_frac_per_reach <- list()
     depletions_potential_per_reach <- list()
     jenk_sdf_per_reach <- list()
+    custom_sdf_per_reach <- list()
     for(i in 1:ncol(closest_points_per_segment)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -2295,6 +2517,7 @@ calculate_stream_depletions <- function(streams,
         pump_frac_per_well <- list()
         depletions_potential_per_well <- list()
         Jenk_SDF_per_well <- list()
+        custom_SDF_per_well <- list()
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -2333,6 +2556,17 @@ calculate_stream_depletions <- function(streams,
           Q_final <- Q_out[[1]]*fracs[j]
           Q_fraction <- Q_out[[2]]
           Jenk_SDF <- Q_out[[3]]
+          
+          
+          if(is.null(custom_sdf_time) == FALSE){
+            custom_SDF <- custom_sdf_gradient_descent(analytical_model = analytical_model,
+                                                      distance = distance,
+                                                      stor_coef = stor_coef,
+                                                      transmissivity = transmissivity,
+                                                      lambda = lambda,
+                                                      custom_sdf_time = custom_sdf_time)
+            custom_SDF_per_well[[counter]] <- custom_SDF
+          }
           #-------------------------------------------------------------------------------
           
           #-------------------------------------------------------------------------------
@@ -2356,7 +2590,7 @@ calculate_stream_depletions <- function(streams,
                                                                        distances = distances,
                                                                        fracs = fracs,
                                                                        pumping = pumping)
-        average_Jenk_SDF <- calculate_average_sdf(depletion_potential_criteria = depletion_potential_criteria,
+        average_Jenk_SDF <- calculate_average_sdf(sdf_averaging_criteria = sdf_averaging_criteria,
                                                   sdf_vec = Jenk_SDF_per_well_total,
                                                   fracs = fracs,
                                                   pumping = pumping)
@@ -2366,12 +2600,32 @@ calculate_stream_depletions <- function(streams,
         depletions_per_reach[[i]] <- base::rowSums(depletions_total)
         pump_frac_per_reach[[i]] <- base::rowSums(pump_frac_per_well_total)
         
+        if(is.null(custom_sdf_time) == FALSE){
+          custom_SDF_per_well_total <- do.call(rbind, custom_SDF_per_well)
+          custom_SDF_per_well_total[custom_SDF_per_well_total == -9999] <- NA
+          if(all(is.na(custom_SDF_per_well_total)) == FALSE){
+            average_custom_sdf <- calculate_average_sdf(sdf_averaging_criteria = sdf_averaging_criteria,
+                                                        sdf_vec = custom_SDF_per_well_total,
+                                                        fracs = fracs,
+                                                        pumping = pumping)
+            custom_sdf_per_reach[[i]] <- average_custom_sdf
+          } else {
+            custom_sdf_per_reach[[i]] <- -9999
+          }
+        }
+        
+        
+        
         
       } else{
         depletions_per_reach[[i]] <- rep(0, ncol(pumping)) # reach has no depletions
         pump_frac_per_reach[[i]] <- rep(0, ncol(pumping))
         depletions_potential_per_reach[[i]] <- rep(0, ncol(pumping))
         jenk_sdf_per_reach[[i]] <- NA
+        
+        if(is.null(custom_sdf_time) == FALSE){
+          custom_sdf_per_reach[[i]] <- NA
+        }
       }
       #-------------------------------------------------------------------------------
     }
@@ -2452,10 +2706,16 @@ calculate_stream_depletions <- function(streams,
     depletions_per_reach <- do.call(rbind, depletions_per_reach)
     pump_frac_per_reach <- do.call(rbind, pump_frac_per_reach)
     jenk_sdf_per_reach <- do.call(rbind, jenk_sdf_per_reach)
+    if(is.null(custom_sdf_time) == TRUE){
+      custom_sdf_per_reach <- NULL
+    } else{
+      custom_sdf_per_reach <- do.call(rbind, custom_sdf_per_reach)
+    }
     return(list(depletions_per_reach,
                 depletions_potential_per_reach,
                 pump_frac_per_reach,
-                jenk_sdf_per_reach))
+                jenk_sdf_per_reach,
+                custom_sdf_per_reach))
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
@@ -2728,6 +2988,7 @@ calculate_stream_depletions <- function(streams,
     pump_frac_per_reach <- list()
     depletions_potential_per_reach <- list()
     jenk_sdf_per_reach <- list()
+    custom_sdf_per_reach <- list()
     for(i in 1:ncol(closest_points_per_segment)){
       #-------------------------------------------------------------------------------
       if(suppress_loading_bar == FALSE){
@@ -2767,6 +3028,7 @@ calculate_stream_depletions <- function(streams,
         pump_frac_per_well <- list()
         depletions_potential_per_well <- list()
         Jenk_SDF_per_well <- list()
+        custom_SDF_per_well <- list()
         counter <- 0
         for(j in well_indices){
           #-------------------------------------------------------------------------------
@@ -2805,6 +3067,17 @@ calculate_stream_depletions <- function(streams,
           Q_final <- Q_out[[1]]*fracs[j]
           Q_fraction <- Q_out[[2]]
           Jenk_SDF <- Q_out[[3]]
+          
+          
+          if(is.null(custom_sdf_time) == FALSE){
+            custom_SDF <- custom_sdf_gradient_descent(analytical_model = analytical_model,
+                                                      distance = distance,
+                                                      stor_coef = stor_coef,
+                                                      transmissivity = transmissivity,
+                                                      leakance = leakance,
+                                                      custom_sdf_time = custom_sdf_time)
+            custom_SDF_per_well[[counter]] <- custom_SDF
+          }
           #-------------------------------------------------------------------------------
           
           #-------------------------------------------------------------------------------
@@ -2823,13 +3096,12 @@ calculate_stream_depletions <- function(streams,
         Jenk_SDF_per_well_total <- do.call(rbind, Jenk_SDF_per_well)
         #-------------------------------------------------------------------------------
         
-        
         average_fractional_depletions <- calculate_depletion_potential(depletion_potential_criteria = depletion_potential_criteria,
                                                                        depletions_potential_per_well_total = depletions_potential_per_well_total,
                                                                        distances = distances,
                                                                        fracs = fracs,
                                                                        pumping = pumping)
-        average_Jenk_SDF <- calculate_average_sdf(depletion_potential_criteria = depletion_potential_criteria,
+        average_Jenk_SDF <- calculate_average_sdf(sdf_averaging_criteria = sdf_averaging_criteria,
                                                   sdf_vec = Jenk_SDF_per_well_total,
                                                   fracs = fracs,
                                                   pumping = pumping)
@@ -2840,11 +3112,29 @@ calculate_stream_depletions <- function(streams,
         pump_frac_per_reach[[i]] <- base::rowSums(pump_frac_per_well_total)
         
 
+        if(is.null(custom_sdf_time) == FALSE){
+          custom_SDF_per_well_total <- do.call(rbind, custom_SDF_per_well)
+          custom_SDF_per_well_total[custom_SDF_per_well_total == -9999] <- NA
+          if(all(is.na(custom_SDF_per_well_total)) == FALSE){
+            average_custom_sdf <- calculate_average_sdf(sdf_averaging_criteria = sdf_averaging_criteria,
+                                                        sdf_vec = custom_SDF_per_well_total,
+                                                        fracs = fracs,
+                                                        pumping = pumping)
+            custom_sdf_per_reach[[i]] <- average_custom_sdf
+          } else {
+            custom_sdf_per_reach[[i]] <- -9999
+          }
+        }
+        
       } else{
         depletions_per_reach[[i]] <- rep(0, ncol(pumping)) # reach has no depletions
         pump_frac_per_reach[[i]] <- rep(0, ncol(pumping))
         depletions_potential_per_reach[[i]] <- rep(0, ncol(pumping))
         jenk_sdf_per_reach[[i]] <- NA
+        
+        if(is.null(custom_sdf_time) == FALSE){
+          custom_sdf_time[[i]] <- NA
+        }
       }
       #-------------------------------------------------------------------------------
     }
@@ -2925,10 +3215,16 @@ calculate_stream_depletions <- function(streams,
     depletions_per_reach <- do.call(rbind, depletions_per_reach)
     pump_frac_per_reach <- do.call(rbind, pump_frac_per_reach)
     jenk_sdf_per_reach <- do.call(rbind, jenk_sdf_per_reach)
+    if(is.null(custom_sdf_time) == TRUE){
+      custom_sdf_per_reach <- NULL
+    } else{
+      custom_sdf_per_reach <- do.call(rbind, custom_sdf_per_reach)
+    }
     return(list(depletions_per_reach,
                 depletions_potential_per_reach,
                 pump_frac_per_reach,
-                jenk_sdf_per_reach))
+                jenk_sdf_per_reach,
+                custom_sdf_per_reach))
     #-------------------------------------------------------------------------------
   }
   #-------------------------------------------------------------------------------
@@ -3429,20 +3725,34 @@ calculate_stream_depletions <- function(streams,
     depletions_per_reach <- as.data.frame(depletions_per_reach)
     colnames(depletions_per_reach) <- c('RN', paste0('T',1:(ncol(depletions_per_reach)-1)))
     
+    
+    
     depletions_potential_per_reach <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
                                             output[[2]])
     depletions_potential_per_reach <- as.data.frame(depletions_potential_per_reach)
     colnames(depletions_potential_per_reach) <- c('RN', paste0('T',1:(ncol(depletions_potential_per_reach)-1)))
+    
+    
     
     pump_frac_per_reach <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
                                   output[[3]])
     pump_frac_per_reach <- as.data.frame(pump_frac_per_reach)
     colnames(pump_frac_per_reach) <- c('RN', paste0('T',1:(ncol(pump_frac_per_reach)-1)))
     
+    
+    
     jenk_sdf_per_reach <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
                                  output[[4]])
     jenk_sdf_per_reach <- as.data.frame(jenk_sdf_per_reach)
     colnames(jenk_sdf_per_reach) <- c('RN', 'T')
+    
+    
+    if(is.null(custom_sdf_time) == FALSE){
+      custom_sdf_per_reach <- cbind(as.vector(unlist(st_drop_geometry(streams[,stream_id_key]))),
+                                    output[[5]])
+      custom_sdf_per_reach <- as.data.frame(custom_sdf_per_reach)
+      colnames(custom_sdf_per_reach) <- c('RN', 'T')
+    }
     #-------------------------------------------------------------------------------
     
     
@@ -3459,7 +3769,8 @@ calculate_stream_depletions <- function(streams,
     return(list(depletions_per_reach,
                 depletions_potential_per_reach,
                 pump_frac_per_reach,
-                jenk_sdf_per_reach))
+                jenk_sdf_per_reach,
+                custom_sdf_per_reach))
   }
   #-------------------------------------------------------------------------------
   
@@ -3628,6 +3939,34 @@ calculate_stream_depletions <- function(streams,
     #-------------------------------------------------------------------------------
   }
   
+  
+  
+  if(is.null(custom_sdf_time) == FALSE){
+    if(custom_sdf_time < 0.1 |
+       custom_sdf_time > 0.9){
+      #-------------------------------------------------------------------------------
+      writeLines(text = sprintf('%s',
+                                paste0('Custom SDF time must be specified as 10-90% of pumping volume (0.1-0.9) for computational reasons')),
+                 con = log_file)
+      writeLines(text = sprintf('%s',
+                                paste0('Please change this argument to within the acceptable range')),
+                 con = log_file)
+      writeLines(text = sprintf('%s',
+                                'Exiting program ...'),
+                 con = log_file)
+      close(log_file)
+      #-------------------------------------------------------------------------------
+      
+      
+      #-------------------------------------------------------------------------------
+      stop(paste0('\ncalculate_stream_depletions.R encountered Error:    \n',
+                  'Custom SDF time must specified as 10-90% of pumping volume (0.1-0.9) for computational reasons\n',
+                  'Please change this argument to within the acceptable range\n',
+                  'exiting program ...'))
+      #-------------------------------------------------------------------------------
+    }
+    #-------------------------------------------------------------------------------
+  }
   
   if(str_to_title(analytical_model) == 'Hunt' &
      is.null(lambda_key) == FALSE){
@@ -4069,6 +4408,7 @@ calculate_stream_depletions <- function(streams,
     depletions_potential_by_reach <- output[[2]]
     pump_frac_by_reach <- output[[3]]
     jenk_sdf_by_reach <- output[[4]]
+    custom_sdf_by_reach <- output[[5]]
     #-------------------------------------------------------------------------------
 
     
@@ -4089,6 +4429,13 @@ calculate_stream_depletions <- function(streams,
               file.path(data_out_dir,
                         paste0('jenk_sdf_by_reach.csv')),
               row.names = FALSE)
+    
+    if(is.null(custom_sdf_time) == FALSE){
+      write.csv(custom_sdf_by_reach,
+                file.path(data_out_dir,
+                          paste0('custom_sdf_by_reach.csv')),
+                row.names = FALSE)
+    }
     #-------------------------------------------------------------------------------
 
     
