@@ -3752,6 +3752,8 @@ calculate_stream_depletions <- function(streams,
                                     output[[5]])
       custom_sdf_per_reach <- as.data.frame(custom_sdf_per_reach)
       colnames(custom_sdf_per_reach) <- c('RN', 'T')
+    } else {
+      custom_sdf_per_reach <- output[[5]]
     }
     #-------------------------------------------------------------------------------
     
