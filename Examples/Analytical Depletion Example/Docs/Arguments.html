@@ -444,30 +444,15 @@ Jenkins (1968) as <span class="math inline">\(\frac{d^2S}{T}\)</span>.
 <br /> <br /> <b><font size="3">custom_sdf_time</font></b>:
 <em>char</em> default <em>NULL</em>, describes whether to find the time
 when the depletions in reach ‘r’ equal the pumping in well ‘w’
-multiplied by <em>custom_sdf_time</em>. Accepts between 0.1 and 0.9 for
-computational reasons. If set to <em>NULL</em> no calculations are done.
-If set within acceptable range will calculate either by the inverse of
-the analytical model (for <em>‘glover’</em>) or by gradient descent (for
-<em>‘hunt’</em> or <em>‘hantush’</em>) <br /> <br />
-<b><font size="3">custom_sdf_convergence_threshold</font></b>:
-<em>numeric</em> default <em>0.01</em>, describes the threshold within
-which an acceptable answer for the custom_sdf_time is found. If kept at
-default for example, an answer within 0.01 (1%) of the true value will
-be considered acceptable and returned by the gradient descent method (if
-found). If analytical model set to <em>‘glover’</em> is used then this
-argument does nothing, as the exact inverse of the equation is used.
-<br /> <br /> <b><font size="3">n_sdf_convergence_tries</font></b>:
-<em>numeric</em> default <em>1000</em>, describes how many tries the
-gradient descent algorithm should use before returning -9999 when
-finding the time when the depletions in reach ‘r’ equal the pumping in
-well ‘w’ multiplied by <em>custom_sdf_time</em>. If analytical model set
-to <em>‘glover’</em> is used then this argument does nothing, as the
-exact inverse of the equation is used. <br /> <br />
-<b><font size="3">data_out_dir</font></b>: <em>char</em> default
-<em>getwd()</em>, describes where to place the output data. <br /> <br />
-<b><font size="3">diag_out_dir</font></b>: <em>char</em> default
-<em>getwd()</em>, describes where to place the diagnostic data
-(currently limited to log.txt). <br /> <br />
+multiplied by <em>custom_sdf_time</em>. Accepts any number, but
+recommended to chose between 0.1 and 0.9. If set to <em>NULL</em> no
+calculations are done. If time to depletions starts between timestep 0
+and 1, -Inf returned. If time to depletions is after final timestep Inf
+returned. <br /> <br /> <b><font size="3">data_out_dir</font></b>:
+<em>char</em> default <em>getwd()</em>, describes where to place the
+output data. <br /> <br /> <b><font size="3">diag_out_dir</font></b>:
+<em>char</em> default <em>getwd()</em>, describes where to place the
+diagnostic data (currently limited to log.txt). <br /> <br />
 <b><font size="3">suppress_loading_bar</font></b>: <em>boolean</em>
 default <em>TRUE</em>, describes whether to suppress loading bars in
 console. Value of <em>TRUE</em> does not give loading bars. <br /> <br />
