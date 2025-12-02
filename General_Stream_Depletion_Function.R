@@ -2251,11 +2251,28 @@ calculate_stream_depletions <- function(streams,
     depletions_per_reach <- do.call(rbind, depletions_per_reach)
     pump_frac_per_reach <- do.call(rbind, pump_frac_per_reach)
     jenk_sdf_per_reach <- do.call(rbind, jenk_sdf_per_reach)
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # output and stats 2
+    writeLines(text = sprintf('%s %s',
+                              paste('Mean | Median Jenkins SDF'),
+                              paste(round(mean(jenk_sdf_per_reach, na.rm = TRUE),4),
+                                    '|',
+                                    round(median(jenk_sdf_per_reach, na.rm = TRUE),4))),
+               con = log_file)
     if(is.null(custom_sdf_time) == TRUE){
       custom_sdf_per_reach <- NULL
     } else{
       custom_sdf_per_reach <- do.call(rbind, custom_sdf_per_reach)
+      writeLines(text = sprintf('%s %s',
+                                paste('Mean | Median Custom SDF',paste0('(',custom_sdf_time,')')),
+                                paste(round(mean(custom_sdf_per_reach, na.rm = TRUE),4),
+                                      '|',
+                                      round(median(custom_sdf_per_reach, na.rm = TRUE),4))),
+                 con = log_file)
     }
+    #-------------------------------------------------------------------------------
     return(list(depletions_per_reach,
                 depletions_potential_per_reach,
                 pump_frac_per_reach,
@@ -2770,11 +2787,28 @@ calculate_stream_depletions <- function(streams,
     depletions_per_reach <- do.call(rbind, depletions_per_reach)
     pump_frac_per_reach <- do.call(rbind, pump_frac_per_reach)
     jenk_sdf_per_reach <- do.call(rbind, jenk_sdf_per_reach)
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # output and stats 2
+    writeLines(text = sprintf('%s %s',
+                              paste('Mean | Median Jenkins SDF'),
+                              paste(round(mean(jenk_sdf_per_reach, na.rm = TRUE),4),
+                                    '|',
+                                    round(median(jenk_sdf_per_reach, na.rm = TRUE),4))),
+               con = log_file)
     if(is.null(custom_sdf_time) == TRUE){
       custom_sdf_per_reach <- NULL
     } else{
       custom_sdf_per_reach <- do.call(rbind, custom_sdf_per_reach)
+      writeLines(text = sprintf('%s %s',
+                                paste('Mean | Median Custom SDF',paste0('(',custom_sdf_time,')')),
+                                paste(round(mean(custom_sdf_per_reach, na.rm = TRUE),4),
+                                      '|',
+                                      round(median(custom_sdf_per_reach, na.rm = TRUE),4))),
+                 con = log_file)
     }
+    #-------------------------------------------------------------------------------
     return(list(depletions_per_reach,
                 depletions_potential_per_reach,
                 pump_frac_per_reach,
@@ -3290,11 +3324,28 @@ calculate_stream_depletions <- function(streams,
     depletions_per_reach <- do.call(rbind, depletions_per_reach)
     pump_frac_per_reach <- do.call(rbind, pump_frac_per_reach)
     jenk_sdf_per_reach <- do.call(rbind, jenk_sdf_per_reach)
+    #-------------------------------------------------------------------------------
+    
+    #-------------------------------------------------------------------------------
+    # output and stats 2
+    writeLines(text = sprintf('%s %s',
+                              paste('Mean | Median Jenkins SDF'),
+                              paste(round(mean(jenk_sdf_per_reach, na.rm = TRUE),4),
+                                    '|',
+                                    round(median(jenk_sdf_per_reach, na.rm = TRUE),4))),
+               con = log_file)
     if(is.null(custom_sdf_time) == TRUE){
       custom_sdf_per_reach <- NULL
     } else{
       custom_sdf_per_reach <- do.call(rbind, custom_sdf_per_reach)
+      writeLines(text = sprintf('%s %s',
+                                paste('Mean | Median Custom SDF',paste0('(',custom_sdf_time,')')),
+                                paste(round(mean(custom_sdf_per_reach, na.rm = TRUE),4),
+                                      '|',
+                                      round(median(custom_sdf_per_reach, na.rm = TRUE),4))),
+                 con = log_file)
     }
+    #-------------------------------------------------------------------------------
     return(list(depletions_per_reach,
                 depletions_potential_per_reach,
                 pump_frac_per_reach,
