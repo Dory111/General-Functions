@@ -2,7 +2,7 @@
 title: "Arguments"
 author: "Christopher Dory"
 date: "2025-11-18"
-output: html_document
+output: github_document
 ---
 ```{r setup, include=FALSE,  message = FALSE, error = FALSE, warning = FALSE}
 ## IMPORTANT 
@@ -15,15 +15,7 @@ knitr::opts_knit$set(echo = TRUE,
 #===========================================================================================
 # Requirements Load
 #===========================================================================================
-library(sf)
-library(sp)
-library(raster)
-library(colorspace)
-library(terra)
-library(lubridate)
-library(stringr)
-library(here)
-library(DT)
+
 options(scipen = 100)
 ```
 
