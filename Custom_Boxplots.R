@@ -1,4 +1,5 @@
 custom_boxplots <- function(bstats,
+                            out = NULL,
                             box_width = 0.35,
                             whisker_lty = 3,
                             whisker_col = 'black',
@@ -39,7 +40,8 @@ custom_boxplots <- function(bstats,
                             grid_col = 'gray40',
                             grid_lty = 3,
                             grid_lwd = 1,
-                            plotbg = 'gray95')
+                            plotbg = 'gray95',
+                            rectbg = 'gray97')
 {
   if(!'matrix' %in% class(bstats)){
     stop(paste0('\nerror encountered when running custom_boxplots:\n',
@@ -63,14 +65,14 @@ custom_boxplots <- function(bstats,
           args[[i]] <- args[[i]][1:end_missing_position]
         }
         # ------------------------------------------------------------------------------------------------
-
+        
         # ------------------------------------------------------------------------------------------------
         # case where user has entered not enough arguments
         if(length(args[[i]]) < n_boxes){
           while(length(args[[i]]) < n_boxes){
-
+            
             n_missing <- n_boxes - length(args[[i]])
-
+            
             # ------------------------------------------------------------------------------------------------
             # if all is needed is a simple append statement
             if(n_missing < length(args[[i]])){
@@ -78,7 +80,7 @@ custom_boxplots <- function(bstats,
                                   args[[i]][1:n_missing])
             }
             # ------------------------------------------------------------------------------------------------
-
+            
             # ------------------------------------------------------------------------------------------------
             # if a rep and an append are needed
             if(n_missing > length(args[[i]])){
@@ -96,8 +98,8 @@ custom_boxplots <- function(bstats,
     return(args)
   }
   # ------------------------------------------------------------------------------------------------
-
-
+  
+  
   # ------------------------------------------------------------------------------------------------
   # ensure argument lengths match n_boxes
   n_boxes <- ncol(bstats)
@@ -132,48 +134,82 @@ custom_boxplots <- function(bstats,
   # ------------------------------------------------------------------------------------------------
   
   
-  
   # ------------------------------------------------------------------------------------------------
-  # basic plotting positions
-  n_boxes <- ncol(bstats)
-  box_positions <- list()
-  for(i in 1:n_boxes){
-    box_positions[[i]] <- rep(i,nrow(bstats))
-  }
-  box_positions_wide <- do.call(cbind, box_positions)
-  box_positions_long <- as.vector(unlist(box_positions))
-  # ------------------------------------------------------------------------------------------------
-  
-  # ------------------------------------------------------------------------------------------------
-  # long format for plotting
-  bstats_long <- matrix(bstats[,1],
-                        ncol = 1)
-  bstats_wide <- bstats
-  if(ncol(bstats) > 1){
-    for(i in 2:ncol(bstats)){
-      bstats_long <- rbind(bstats_long,
-                           matrix(bstats[,i],
-                                  ncol = 1))
+  # plot outliars or not
+  if(is.null(out) == FALSE){
+    # ------------------------------------------------------------------------------------------------
+    # basic plotting positions
+    n_boxes <- ncol(bstats)
+    box_positions <- list()
+    for(i in 1:n_boxes){
+      box_positions[[i]] <- c(rep(i,nrow(bstats)),
+                              rep(i,length(out[[i]])))
     }
+    # box_positions_wide <- do.call(cbind, box_positions)
+    box_positions_long <- as.vector(unlist(box_positions))
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # long format for plotting
+    bstats_long <- matrix(c(bstats[,1],out[[1]]),
+                          ncol = 1)
+    bstats_wide <- bstats
+    if(ncol(bstats) > 1){
+      for(i in 2:ncol(bstats)){
+        bstats_long <- rbind(bstats_long,
+                             matrix(c(bstats[,i],out[[i]]),
+                                    ncol = 1))
+      }
+    }
+    # ------------------------------------------------------------------------------------------------
+  } else {
+    # ------------------------------------------------------------------------------------------------
+    # basic plotting positions
+    n_boxes <- ncol(bstats)
+    box_positions <- list()
+    for(i in 1:n_boxes){
+      box_positions[[i]] <- c(rep(i,nrow(bstats)))
+    }
+    # box_positions_wide <- do.call(cbind, box_positions)
+    box_positions_long <- as.vector(unlist(box_positions))
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # long format for plotting
+    bstats_long <- matrix(c(bstats[,1]),
+                          ncol = 1)
+    bstats_wide <- bstats
+    if(ncol(bstats) > 1){
+      for(i in 2:ncol(bstats)){
+        bstats_long <- rbind(bstats_long,
+                             matrix(bstats[,i],
+                                    ncol = 1))
+      }
+    }
+    # ------------------------------------------------------------------------------------------------
   }
   # ------------------------------------------------------------------------------------------------
   
   
   # ------------------------------------------------------------------------------------------------
   par(mar = c(mar))
+  par(bg = plotbg)
   plot(x = box_positions_long,
        y = bstats_long,
        xlim = c(1 - 0.5,
                 n_boxes + 0.5),
        xaxt = xaxt,
        yaxt = yaxt,
-       bg = plotbg,
        xlab = xlab,
        ylab = ylab,
        main = main,
        cex.lab = cex.lab,
        cex.axis = cex.axis,
        col = 'white')
+  usr <- par('usr')
+  rect(usr[1],usr[3],usr[2],usr[4],
+       col = rectbg)
+  
   if(grid == TRUE){
     for(i in 1:length(axTicks(2))){
       abline(h = axTicks(2)[i],
@@ -199,6 +235,16 @@ custom_boxplots <- function(bstats,
          lwd = box_lwd[i],
          lty = box_lty[i],
          col = box_col[i])
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    if(is.null(out) == FALSE){
+      points(x = rep(i,length(out[[i]])),
+             y = out[[i]],
+             bg = box_col[i],
+             col = box_border[i],
+             pch = 21)
+    }
     # ------------------------------------------------------------------------------------------------
     
     # ------------------------------------------------------------------------------------------------
