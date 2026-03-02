@@ -75,7 +75,7 @@ custom_boxplots <- function(bstats,
             
             # ------------------------------------------------------------------------------------------------
             # if all is needed is a simple append statement
-            if(n_missing < length(args[[i]])){
+            if(n_missing <= length(args[[i]])){
               args[[i]] <- append(args[[i]],
                                   args[[i]][1:n_missing])
             }
