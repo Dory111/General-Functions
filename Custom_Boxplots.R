@@ -5,6 +5,7 @@ custom_boxplots <- function(bstats,
                             whisker_col = 'black',
                             whisker_lwd = 2,
                             whisker_width = 0.35,
+                            whisker_horizontal = TRUE,
                             box_col = 'gray',
                             box_lwd = 2,
                             box_lty = 1,
@@ -259,38 +260,42 @@ custom_boxplots <- function(bstats,
     # ------------------------------------------------------------------------------------------------
     
     # ------------------------------------------------------------------------------------------------
-    # draw bottom whisker
+    # draw lines extending to bottom and top whiskers
     lines(x = c(i,i),
           y = c(bstats[2,i],
                 bstats[1,i]),
           col = whisker_col[i],
           lwd = whisker_lwd[i],
           lty = whisker_lty[i])
-    lines(x = c(i - whisker_width[i],
-                i + whisker_width[i]),
-          y = c(bstats[1,i],
-                bstats[1,i]),
-          col = whisker_col[i],
-          lwd = whisker_lwd[i],
-          lty = whisker_lty[i])
-    # ------------------------------------------------------------------------------------------------
-    
-    
-    # ------------------------------------------------------------------------------------------------
-    # draw top whisker
+
     lines(x = c(i,i),
           y = c(bstats[4,i],
                 bstats[5,i]),
           col = whisker_col[i],
           lwd = whisker_lwd[i],
           lty = whisker_lty[i])
-    lines(x = c(i - whisker_width[i],
-                i + whisker_width[i]),
-          y = c(bstats[5,i],
-                bstats[5,i]),
-          col = whisker_col[i],
-          lwd = whisker_lwd[i],
-          lty = whisker_lty[i])
+    # ------------------------------------------------------------------------------------------------
+    
+
+    # ------------------------------------------------------------------------------------------------
+    # draw horizontal part of whiskers
+    if(whisker_horizontal == TRUE){
+      lines(x = c(i - whisker_width[i],
+                  i + whisker_width[i]),
+            y = c(bstats[1,i],
+                  bstats[1,i]),
+            col = whisker_col[i],
+            lwd = whisker_lwd[i],
+            lty = whisker_lty[i])
+      
+      lines(x = c(i - whisker_width[i],
+                  i + whisker_width[i]),
+            y = c(bstats[5,i],
+                  bstats[5,i]),
+            col = whisker_col[i],
+            lwd = whisker_lwd[i],
+            lty = whisker_lty[i])
+    } else {}
     # ------------------------------------------------------------------------------------------------
   }
   # ------------------------------------------------------------------------------------------------
