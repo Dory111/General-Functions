@@ -1,34 +1,41 @@
-# rast1 <- rast('C:/Users/ChrisDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Data/DEM/USGS_13_n42w123_20231102.tif')
-# rast2 <- rast('C:/Users/ChrisDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Data/DEM/USGS_13_n42w124_20250812.tif')
-# rast <- merge(rast2,rast1)
-# ext <- st_read('C:/Users/ChrisDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/Scott_HUC_12.shp')
-# 
-# rast <- crop(rast, ext(ext[ext$name == 'South Fork Scott River', ]))
-# rast <- mask(rast, ext[ext$name == 'South Fork Scott River', ])
+# ------------------------------------------------------------------------------------------------
+# testing values
+rast <- raster(ncol = 10, nrow = 10,
+               xmn = 1000, xmx = 2000,
+               ymn = 1000, ymx = 2000,
+               crs = 3310)
+start_value <- 100
+subtract <- 20
+start_row <- rep(start_value, ncol(rast))
+half_rows <- list(start_row)
+for(i in 2:(nrow(rast)/2)){
+  row <- half_rows[[i-1]]
+  inds <- c(i,ncol(rast)-i+1)
+  row[inds[1]:inds[2]] <- row[inds[1]:inds[2]] - subtract
+  half_rows[[i]] <- row
+}
+half_rows2 <- do.call(rbind, half_rows[5:1])
+half_rows <- do.call(rbind, half_rows)
 
-# rast <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/712/712.01/T00-Vina-ISW/Data/Raster/USGS_13_n40w122_20250514.tif')
-# ext <- st_read('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/712/712.01/T00-Vina-ISW/Data/Shapefiles/Study_Area_Extent.shp')
-# ext <- st_transform(ext,4269)
-# rast <- crop(rast, ext(ext))
-# rast <- project(rast, crs(st_transform(ext,4326)))
-# 
-# Watershed_Delineator(raster = rast,
-#                      out_dir = 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/712/712.01/T00-Vina-ISW/Data/Raster',
-#                      flow_dir_rast_name = 'Flow_Dir_Test')
-# a <- rast('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/712/712.01/T00-Vina-ISW/Data/Raster/Flow_Dir_Test.tif')
-# png(filename=file.path('C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.07/5c Shasta_ISW/Shapefiles/Accessory_Shapefiles/South_Fork_Slope.png'),
-#     width=8, height=10, units="in", res=1000)
-# plot(a,legend = T,
-#      main = 'Slope of South Fork')
-# b <- a
-# c <- a
-# values(b)[values(a) != 's'] <- NA
-# values(b)[values(a) == 's'] <- 1
-# values(c)[values(a) != 'f'] <- NA
-# values(c)[values(a) == 'f'] <- 1
-# plot(b, add = T, col = 'red', legend = F)
-# plot(c, add = T, col = 'darkorange', legend = F)
-# dev.off()
+
+all_rows <- rbind(half_rows,
+                  half_rows2)
+values(rast) <- all_rows
+
+
+
+raster <- rast
+out_dir <- 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.06/00 ISW/Output/Raster'
+flow_dir_rast_name <- 'Floww_Dir_Test'
+min_slope <- 1
+diff_x <- NULL
+diff_y <- NULL
+zunit <- 'm'
+suppress_loading_bar = FALSE
+suppress_console_messages = FALSE
+sink_code <- -4444
+flat_code <- -9999
+# ------------------------------------------------------------------------------------------------
 
 
 # ==================================================================================================
@@ -38,9 +45,13 @@ Watershed_Delineator <- function(raster,
                                  out_dir,
                                  flow_dir_rast_name = NULL,
                                  min_slope = 1,
+                                 flat_code = -9999,
+                                 sink_code = -4444,
                                  diff_x = NULL,
                                  diff_y = NULL,
-                                 zunit = 'm')
+                                 zunit = 'm',
+                                 suppress_loading_bar = FALSE,
+                                 suppress_console_messages = FALSE)
 {
   ############################################################################################################
   ################################## HELPER FUNCTIONS ########################################################
@@ -371,7 +382,7 @@ Watershed_Delineator <- function(raster,
         
       }
       # ------------------------------------------------------------------------------------------------
-    }
+    } else {}
     # ------------------------------------------------------------------------------------------------
     
     
@@ -407,8 +418,8 @@ Watershed_Delineator <- function(raster,
                        ctr_y]
       p1z <- neighbors[cbind(ctr_y + nbr_dy,
                              ctr_x + nbr_dx)]
-      p2z <- neighbors[cbind(ctr_y + nbr_dx_shifted,
-                             ctr_x + nbr_dy_shifted)]
+      p2z <- neighbors[cbind(ctr_y + nbr_dy_shifted,
+                             ctr_x + nbr_dx_shifted)]
       
       p0x <- 0
       p1x <- diff_x*diff_dx
@@ -431,6 +442,16 @@ Watershed_Delineator <- function(raster,
       
       # ------------------------------------------------------------------------------------------------
       # get bounds of wedges
+      # bounds <- matrix(nrow = 8, ncol = 2,
+      #                  data = c(0,       -pi/4,
+      #                           -pi/4,   -pi/2,
+      #                           -pi/2,   -3*pi/4,
+      #                           -3*pi/4, -pi,
+      #                           pi,      3*pi/4,
+      #                           3*pi/4,  pi/2,
+      #                           pi/2,    pi/4,
+      #                           pi/4,    0),
+      #                  byrow= T)
       bounds <- cbind(atan2(diff_y*diff_dy,
                             diff_x*diff_dx),
                       atan2(diff_y*diff_dy_shifted,
@@ -457,19 +478,27 @@ Watershed_Delineator <- function(raster,
       if(any(is.na(output[[4]])) == FALSE){
         # ------------------------------------------------------------------------------------------------
         # convert from signed to unsigned (0-2*pi) angle
-        bounds_comp <- cbind(bounds,output[[4]])
+        bounds_comp <- cbind(bounds, output[[4]])
         bounds_comp <- (bounds_comp + (2*pi)) %% (2*pi)
+        bounds_comp <- bounds_comp * (180/pi)
+        bounds_comp[1,1] <- 360
         # ------------------------------------------------------------------------------------------------
         
         # ------------------------------------------------------------------------------------------------
         # do any directions exceed the wedge bounds
-        inds <- which(bounds_comp[,3] < apply(bounds[,1:2],1,min)|
-                        bounds_comp[,3] > apply(bounds[,1:2],1,max))
+        inds <- which(bounds_comp[,3] < apply(bounds_comp[,1:2],1,min)|
+                      bounds_comp[,3] > apply(bounds_comp[,1:2],1,max))
         if(length(inds) > 0){
           bounds_comp_min_inds <- apply(bounds_comp[inds,3] - bounds_comp[inds,1:2],1,which.min)
           bounds_comp[inds,3] <- bounds_comp[cbind(inds,bounds_comp_min_inds)]
         }
         # ------------------------------------------------------------------------------------------------
+        
+        # ------------------------------------------------------------------------------------------------
+        # convert to unsigned angle
+        bounds_comp <- bounds_comp * (pi/180)
+        # ------------------------------------------------------------------------------------------------
+        
         
         # ------------------------------------------------------------------------------------------------
         # convert back to signed angle
@@ -505,13 +534,16 @@ Watershed_Delineator <- function(raster,
       if(length(slopes_wedges) > 0){
         # ------------------------------------------------------------------------------------------------
         # is cell a sink ('s') or flat ('f')
-        if(all(slopes_wedges <= 0)){
-          final_dir <- 's'
-          final_dir_deg <- 's'
+        # if all less than 0 (all pointing to cell) its a sink
+        # if not zero but all less than min slope its a flat
+        # if neither of these criteria is fulfilled
+        if(all(slopes_wedges < 0)){
+          final_dir <- sink_code
+          final_dir_deg <- sink_code
           max_slope <- 0
         } else if (all(slopes_wedges < min_slope)){
-          final_dir <- 'f'
-          final_dir_deg <- 'f'
+          final_dir <- flat_code
+          final_dir_deg <- flat_code
           max_slope <- 0
         } else {
           
@@ -563,51 +595,42 @@ Watershed_Delineator <- function(raster,
   
   
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
   ############################################################################################################
-  ################################## RUN FUNCTIONS ###########################################################
+  ################################## ERRORS ##################################################################
   ############################################################################################################
   
-  
-  ################################## ERRORS ########################################################
   # ------------------------------------------------------------------------------------------------
   # not a raster error
   if(class(raster)[1] != 'SpatRaster'){
     if(class(raster)[1] != 'RasterLayer'){
       stop(paste0('Watershed_Delineator:\n\n',
                   'Inputs not in the form of a raster\n'))
-    } else{
+    } else {
       raster <- rast(raster)
     }
   }
   # ------------------------------------------------------------------------------------------------
   
   
-  ################################## CORRECTIONS ###################################################
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  ############################################################################################################
+  ################################## CORRECTIONS #############################################################
+  ############################################################################################################
+  
+  
   # ------------------------------------------------------------------------------------------------
   # accounting for no entered name
   if(is.null(flow_dir_rast_name) == TRUE){
@@ -643,16 +666,19 @@ Watershed_Delineator <- function(raster,
         diff_y <- diff_y * 3.28
       }
     }
+  } else {
+    diff_x <- res(raster)[1]
+    diff_y <- res(raster)[2]
+    
+    if(zunit == 'ft'){
+      diff_x <- diff_x * 3.28
+      diff_y <- diff_y * 3.28
+    }
   }
   # ------------------------------------------------------------------------------------------------
   
-
-  ################################## FLOW DIRECTION RASTER #########################################
   # ------------------------------------------------------------------------------------------------
   # padding values
-  flow_dir_deg_output <- list()
-  flow_dir_rad_output <- list()
-  flow_dir_slope_output <- list()
   values <- values(raster)
   nrow <- nrow(raster)
   ncol <- ncol(raster)
@@ -670,27 +696,73 @@ Watershed_Delineator <- function(raster,
                   values)
   # ------------------------------------------------------------------------------------------------
   
-  # ------------------------------------------------------------------------------------------------
-  # getting iteratble quantities and notifying user
-  counter <- 0
   
-  mils <- ncell(raster)/1e6
-  seconds <- mils*159
-  minutes <- round(seconds/60,2)
-  cat(paste0('For details on the machine these functions were tested on\n',
-             'please call wdl_machine_specs()\n\n'))
-  cat(paste0('Compiling flow direction raster\n',
-             'based on historical performance \n',
-             'and the size of your raster this will take:\n',
-             minutes,' minutes\n\n'))
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  ############################################################################################################
+  ################################## RUN FUNCTIONS ###########################################################
+  ############################################################################################################
+
+  
+  # ------------------------------------------------------------------------------------------------
+  # notify user
+  if(suppress_console_messages == FALSE){
+    mils <- ncell(raster)/1e6
+    seconds <- mils*159
+    minutes <- round(seconds/60,2)
+    
+    cat(paste0('\n####################################################################################\n'))
+    cat(paste0('WATERSHED DELINEATOR\n'))
+    cat(paste0('####################################################################################\n\n'))
+    cat(paste0('\nFor details on the machine these functions were tested on please call wdl_machine_specs()\n\n'))
+    cat(paste0('Calculating flow direction raster.\n',
+               'Based on historical performance and the size of your raster this will take:\n',
+               minutes,' minutes\n'))
+    cat('Step (1/3)\n\n')
+  }
   # ------------------------------------------------------------------------------------------------
   
   # ------------------------------------------------------------------------------------------------
   # getting flow directions
+  flow_dir_deg_output <- list()
+  flow_dir_rad_output <- list()
+  flow_dir_slope_output <- list()
+  # time2 <- list()
+  counter <- 0
   for(i in 1:nrow(raster)){
-    loading_bar(i,
-                nrow(raster),
-                width = 50)
+    s1 <- Sys.time()
+    # ------------------------------------------------------------------------------------------------
+    # update loading bar
+    if(suppress_loading_bar == FALSE){
+      loading_bar(i,
+                  nrow(raster),
+                  width = 50)
+    }
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # run function
     for(j in 1:ncol(raster)){
       counter <- counter + 1
 
@@ -705,14 +777,18 @@ Watershed_Delineator <- function(raster,
       flow_dir_rad_output[[counter]] <- output[[1]]
       flow_dir_slope_output[[counter]] <- output[[3]]
     }
+    # ------------------------------------------------------------------------------------------------
+    # time2[[i]] <- as.numeric(Sys.time()-s1)
   }
+  # time2 <<- time2
   # ------------------------------------------------------------------------------------------------
 
+  
   # ------------------------------------------------------------------------------------------------
   # building raster and writing out
-  flow_dir_deg_output <- as.numeric(flow_dir_deg_output)
-  flow_dir_rad_output <- as.numeric(flow_dir_rad_output)
-  flow_dir_slope_output <- as.numeric(flow_dir_slope_output)
+  flow_dir_deg_output <- as.numeric(as.vector(unlist(flow_dir_deg_output)))
+  flow_dir_rad_output <- as.numeric(as.vector(unlist(flow_dir_rad_output)))
+  flow_dir_slope_output <- as.numeric(as.vector(unlist(flow_dir_slope_output)))
   flow_dir_rast <- rast(ncol = ncol(raster),
                         nrow = nrow(raster),
                         crs = crs(raster),
@@ -731,7 +807,7 @@ Watershed_Delineator <- function(raster,
              flow_dir_rad_rast,
              flow_dir_slope_rast)
   names(stack) <- c('degrees','radians','slope')
-  plot(stack[[3]])
+  
   
   writeRaster(stack,
               file.path(out_dir,paste0(flow_dir_rast_name,'.tif')),
