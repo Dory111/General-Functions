@@ -755,10 +755,10 @@ Watershed_Delineator <- function(raster,
     # testing to see if outlet location is border cell (forbidden)
     # border is replaced with NA in first step of calculating flow direction, as direction cant be determined
     # when neighbors of cell are not defined
-    edge1 <- 1:ncol(raster)
-    edge2 <- seq(from = 1, to = ncell(raster), by = ncol(raster))
-    edge3 <- seq(from = 10, to = ncell(raster), by = ncol(raster))
-    edge4 <- seq(from = tail(edge2,1), to = tail(edge3,1), by = 1)
+    edge1 <- 1:ncol(raster) # top edge
+    edge2 <- seq(from = 1, to = ncell(raster), by = ncol(raster)) # left edge
+    edge3 <- seq(from = ncol(raster), to = ncell(raster), by = ncol(raster)) # right edge
+    edge4 <- seq(from = tail(edge2,1), to = tail(edge3,1), by = 1) # bottom edge
     if(outlet_cell %in% c(edge1, edge2, edge3, edge4)){
       stop(paste0('Watershed_Delineator:\n\n',
                   'Outlet location passed is on border cell of raster (forbidden)\n',
