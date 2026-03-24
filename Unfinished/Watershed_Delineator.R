@@ -26,7 +26,7 @@ values(rast) <- all_rows
 
 raster <- rast
 out_dir <- 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.06/00 ISW/Output/Raster'
-flow_dir_rast_name <- 'Floww_Dir_Test'
+flow_dir_rast_name <- 'Flow_Dir_Test'
 min_slope <- 1
 diff_x <- NULL
 diff_y <- NULL
@@ -35,14 +35,23 @@ suppress_loading_bar = FALSE
 suppress_console_messages = FALSE
 sink_code <- -4444
 flat_code <- -9999
+outlet_location_CRS <- NULL
+outlet_location_is_sf <- TRUE
+outlet_location <- st_sf(st_sfc(st_point(x = c(1350,1350)),
+                          crs = 3310))
+st_geometry(outlet_location) <- 'geometry'
 # ------------------------------------------------------------------------------------------------
 
 
 # ==================================================================================================
-# Delineates watersheds
+# Delineates watersheds by first determining the flow direction of a DEM, and then recursively finding
+# all the cells that flow towards a chosen outlet location
 # ==================================================================================================
 Watershed_Delineator <- function(raster,
                                  out_dir,
+                                 outlet_location = NULL,
+                                 outlet_location_CRS = NULL,
+                                 outlet_location_is_sf = TRUE,
                                  flow_dir_rast_name = NULL,
                                  min_slope = 1,
                                  flat_code = -9999,
@@ -109,7 +118,6 @@ Watershed_Delineator <- function(raster,
   
   
   
-  
   # ==================================================================================================
   # calculate distance based on latlon
   # ==================================================================================================
@@ -155,9 +163,59 @@ Watershed_Delineator <- function(raster,
   
   
   
-  
-  
-  
+  #===========================================================================================
+  # if outlet location is passed as an XY point then move it to an sf object
+  #===========================================================================================
+  coerce_outlet_location <- function(outlet_location)
+  {
+    # ------------------------------------------------------------------------------------------------
+    # if user modifies to indicate that outlet location is not as an sf dataframe but an XY point
+    if(outlet_location_is_sf == FALSE){
+      if(is.null(outlet_location_CRS) == TRUE){
+        outlet_location <- st_sf(st_sfc(st_point(x = c(outlet_location[1],outlet_location[2])),
+                                        crs = st_crs(raster)))
+      } else {
+        outlet_location <- st_sf(st_sfc(st_point(x = c(outlet_location[1],outlet_location[2])),
+                                        crs = outlet_location_CRS))
+        outlet_location <- st_transform(outlet_location,
+                                        st_crs(raster))
+      }
+      st_geometry(outlet_location) <- 'geometry'
+    } 
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # if user indicates that default case is true (location is an sf dataframe) then check if that
+    # is actually the case
+    # If it isnt the case and default left on by accident then coerce to sf if possible
+    if(outlet_location_is_sf == TRUE){
+      # ------------------------------------------------------------------------------------------------
+      # if its an st_point by accident then move it to a vector and proceed to next step
+      if(class(outlet_location)[1] == 'XY'){
+        outlet_location <- as.vector(st_coordinates(outlet_location))
+      }
+      # ------------------------------------------------------------------------------------------------
+      
+      # ------------------------------------------------------------------------------------------------
+      # move vector to sf dataframe
+      if(class(outlet_location)[1] != 'sf'){
+        if(is.null(outlet_location_CRS) == TRUE){
+          outlet_location <- st_sf(st_sfc(st_point(x = c(outlet_location[1],outlet_location[2])),
+                                          crs = st_crs(raster)))
+        } else {
+          outlet_location <- st_sf(st_sfc(st_point(x = c(outlet_location[1],outlet_location[2])),
+                                          crs = outlet_location_CRS))
+          outlet_location <- st_transform(outlet_location,
+                                          st_crs(raster))
+        }
+        st_geometry(outlet_location) <- 'geometry'
+      } else {}
+      # ------------------------------------------------------------------------------------------------
+    }
+    # ------------------------------------------------------------------------------------------------
+    return(outlet_location)
+  }
+  # ------------------------------------------------------------------------------------------------
   
   
   
@@ -675,12 +733,41 @@ Watershed_Delineator <- function(raster,
   }
   # ------------------------------------------------------------------------------------------------
   
-  
-  
-  
-  
-  
-  
+  # ------------------------------------------------------------------------------------------------
+  # forgot to pass outlet location error
+  if(is.null(outlet_location) == TRUE){
+    stop(paste0('Watershed_Delineator:\n\n',
+                'Outlet location passed is NULL\n'))
+  } else {
+    outlet_location <- coerce_outlet_location(outlet_location)
+    outlet_cell <- terra::cellFromXY(raster, as.vector(st_coordinates(outlet_location)))
+    
+    # ------------------------------------------------------------------------------------------------
+    # is outlet location outside raster extent
+    if(is.na(outlet_cell) == TRUE){
+      stop(paste0('Watershed_Delineator:\n\n',
+                  'Outlet location passed is not within raster extent\n',
+                  'Is passed CRS of outlet location correct?\n'))
+    }
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # testing to see if outlet location is border cell (forbidden)
+    # border is replaced with NA in first step of calculating flow direction, as direction cant be determined
+    # when neighbors of cell are not defined
+    edge1 <- 1:ncol(raster)
+    edge2 <- seq(from = 1, to = ncell(raster), by = ncol(raster))
+    edge3 <- seq(from = 10, to = ncell(raster), by = ncol(raster))
+    edge4 <- seq(from = tail(edge2,1), to = tail(edge3,1), by = 1)
+    if(outlet_cell %in% c(edge1, edge2, edge3, edge4)){
+      stop(paste0('Watershed_Delineator:\n\n',
+                  'Outlet location passed is on border cell of raster (forbidden)\n',
+                  'Either pass more interior location or extend DEM past current location'))
+    }
+    # ------------------------------------------------------------------------------------------------
+  }
+  # ------------------------------------------------------------------------------------------------
+
   
   
   
