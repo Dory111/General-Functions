@@ -27,12 +27,14 @@ values(rast) <- all_rows
 raster <- rast
 out_dir <- 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.06/00 ISW/Output/Raster'
 flow_dir_rast_name <- 'Flow_Dir_Test'
+flow_to_outlet_rast_name <- 'Outlet_Test'
 min_slope <- 1
 diff_x <- NULL
 diff_y <- NULL
 zunit <- 'm'
-suppress_loading_bar = FALSE
-suppress_console_messages = FALSE
+suppress_loading_bar <- FALSE
+suppress_console_messages <- FALSE
+spinning_bar_update_cycle <- 1
 sink_code <- -4444
 flat_code <- -9999
 outlet_location_CRS <- NULL
@@ -53,6 +55,7 @@ Watershed_Delineator <- function(raster,
                                  outlet_location_CRS = NULL,
                                  outlet_location_is_sf = TRUE,
                                  flow_dir_rast_name = NULL,
+                                 flow_to_outlet_rast_name = NULL,
                                  min_slope = 1,
                                  flat_code = -9999,
                                  sink_code = -4444,
@@ -60,7 +63,8 @@ Watershed_Delineator <- function(raster,
                                  diff_y = NULL,
                                  zunit = 'm',
                                  suppress_loading_bar = FALSE,
-                                 suppress_console_messages = FALSE)
+                                 suppress_console_messages = FALSE,
+                                 spinning_bar_update_cycle = 1)
 {
   ############################################################################################################
   ################################## HELPER FUNCTIONS ########################################################
@@ -115,6 +119,21 @@ Watershed_Delineator <- function(raster,
     # ------------------------------------------------------------------------------------------------
   }
   # ------------------------------------------------------------------------------------------------
+  
+  
+  
+  # ==================================================================================================
+  # Simple function to concatenate a loading bar
+  spinning_bar <- function(optional_text, character) 
+  {
+    # ------------------------------------------------------------------------------------------------
+    cat(sprintf("\r[ %s ] %s",
+                character,
+                optional_text))
+    # ------------------------------------------------------------------------------------------------
+  }
+  # ------------------------------------------------------------------------------------------------
+  
   
   
   
@@ -770,6 +789,210 @@ Watershed_Delineator <- function(raster,
   
   
   
+  # ==================================================================================================
+  # Recursively checks all cells that flow to the outlet
+  # ==================================================================================================
+  check_all_cells_flowing_to_outlet <- function(raster,
+                                                diff_x,
+                                                diff_y,
+                                                flow_dir_deg_output,
+                                                outlet_cell)
+  {
+    # ------------------------------------------------------------------------------------------------
+    # which cells have been checked, and which flow to the outlet cell
+    all_check <- matrix(FALSE,
+                        ncol = ncol(raster),
+                        nrow = nrow(raster))
+    cells_flowing_to_outlet <- matrix(FALSE,
+                                      ncol = ncol(raster),
+                                      nrow = nrow(raster))
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # get degree values
+    flow_dir_deg_mat <- matrix(flow_dir_deg_output,
+                               ncol = ncol(raster),
+                               nrow = nrow(raster),
+                               byrow = TRUE)
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # which column and row is the outlet in
+    # if its a multiple of the columns it must be the last column and then the row stays the same
+    # else a value of something like 64 in a 10 by 10 matrix will actually be located in the 7th row at position 4
+    # so add one to the outlet row
+    outlet_column <- outlet_cell %% ncol(raster)
+    if(outlet_column == 0){
+      outlet_column <- ncol(raster)
+      outlet_row <- floor(outlet_cell/ncol(raster))
+    } else {
+      outlet_row <- floor(outlet_cell/ncol(raster))
+      outlet_row <- outlet_row + 1
+    }
+    all_check[outlet_row, outlet_column] <- TRUE
+    cells_flowing_to_outlet[outlet_row, outlet_column] <- TRUE
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # positions of cell neighbors to the north south east and west
+    outlet_neighbors_dx <- c(0,0,1,-1)
+    outlet_neighbors_dy <- c(-1,1,0,0)
+    outlet_neighbors <- flow_dir_deg_mat[cbind(outlet_row + outlet_neighbors_dy,
+                                               outlet_column + outlet_neighbors_dx)]
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # angles that neighbors can point to
+    if(is.null(diff_x) == TRUE |
+       is.null(diff_y) == TRUE){
+      diff_x <- res(raster)[1]
+      diff_y <- res(raster)[2]
+    }
+    
+    diff_dx <- c( -1, -1,  -1, 1)
+    diff_dy <- c( -1,  1,   1, 1)
+    
+    diff_dx_shifted <- c( 1,  1, -1,  1) 
+    diff_dy_shifted <- c(-1,  1, -1, -1)
+    
+    bounds <- cbind(atan2(diff_y*diff_dy,
+                          diff_x*diff_dx),
+                    atan2(diff_y*diff_dy_shifted,
+                          diff_x*diff_dx_shifted))
+    bounds <- (bounds + (2*pi)) %% (2*pi)
+    bounds <- bounds * (180/pi)
+    # ------------------------------------------------------------------------------------------------
+    
+    
+    # ------------------------------------------------------------------------------------------------
+    finished <- FALSE
+    counter <- 0
+    ncheck <- 0
+    nstep <- 0
+    niter <- 0
+    go_back_and_check <- matrix(c(1,1), ncol = 2)
+    characters <- c('|', '/', '-','\\')
+    while(finished == FALSE){
+      niter <- niter + 1
+
+      # ------------------------------------------------------------------------------------------------
+      # check what cells flow to current cell
+      output <- check_outlet_neighbors(bounds,
+                                       outlet_neighbors)
+      # ------------------------------------------------------------------------------------------------
+      
+      # ------------------------------------------------------------------------------------------------
+      # update matrices
+      row_columns <- cbind(outlet_row + outlet_neighbors_dy,
+                           outlet_column + outlet_neighbors_dx)
+      update_needed <- which(cells_flowing_to_outlet[row_columns] == FALSE)
+      ncheck <- ncheck + length(which(all_check[row_columns] == FALSE))
+      if(length(update_needed) != 0){
+        cells_flowing_to_outlet[matrix(row_columns[update_needed, ], ncol = 2)] <- output[[1]][update_needed]
+        all_check[matrix(row_columns[update_needed, ], ncol = 2)] <- output[[2]][update_needed]
+      } else {}
+      # ------------------------------------------------------------------------------------------------
+      
+      # ------------------------------------------------------------------------------------------------
+      # find which rows and columns to check next
+      next_row_column <- matrix(row_columns[which(output[[1]] == TRUE), ],
+                                ncol = 2)
+      # ------------------------------------------------------------------------------------------------
+      
+      # ------------------------------------------------------------------------------------------------
+      # update loading bar
+      if(suppress_loading_bar == FALSE){
+        if(niter %% spinning_bar_update_cycle == 0){
+          nstep <- nstep + 1
+          pos <- nstep%%length(characters)
+          if(pos == 0){
+            pos <- 1
+          }
+          spinning_bar(optional_text = paste0('Ncell Checked: ', ncheck),
+                       character = characters[pos])
+        } else {
+          if(niter == 1){
+            pos <- 1
+          } else {}
+          spinning_bar(optional_text = paste0('Ncell Checked: ', ncheck),
+                       character = characters[pos])
+        }
+      }
+      # ------------------------------------------------------------------------------------------------
+      
+      # ------------------------------------------------------------------------------------------------
+      # if the current cell has neighbors still to check then check them
+      # if more than one cell to check choose a random one first and set other aside
+      # if current cell has none to check look back to the ones that have been set aside
+      # and choose a random one from that set
+      # if no neighbors need to be checked on current cell, and none are left set aside set break loop
+      if(nrow(next_row_column) > 1){
+        # ------------------------------------------------------------------------------------------------
+        # get the next row and column
+        to_check_currently <- round(runif(n = 1, min = 1, max = nrow(next_row_column)))
+        set_aside <- c(1:nrow(next_row_column))[-c(to_check_currently)]
+        # ------------------------------------------------------------------------------------------------
+        
+        # ------------------------------------------------------------------------------------------------
+        # if there are items to set aside put it in the matrix
+        if(length(set_aside) > 0){
+          # ------------------------------------------------------------------------------------------------
+          # if its the first time remove dummy values, if not just bind it
+          if(counter == 0){
+            counter <- counter + 1
+            go_back_and_check <- rbind(go_back_and_check,
+                                       next_row_column[set_aside, ])
+            go_back_and_check <- matrix(go_back_and_check[-c(1), ],
+                                        ncol = 2)
+          } else {
+            go_back_and_check <- rbind(go_back_and_check,
+                                       next_row_column[set_aside, ])
+          }
+          # ------------------------------------------------------------------------------------------------
+        } else{}
+        next_row_column <- next_row_column[to_check_currently, ]
+        # ------------------------------------------------------------------------------------------------
+      } else {
+        
+        # ------------------------------------------------------------------------------------------------
+        # if theres nothing left set aside, then the loop must be over
+        if(nrow(go_back_and_check) != 0){
+          # ------------------------------------------------------------------------------------------------
+          # get the next row and column
+          to_check_currently <- round(runif(n = 1, min = 1, max = nrow(go_back_and_check)))
+          set_aside <- c(1:nrow(go_back_and_check))[-c(to_check_currently)]
+          
+          
+          next_row_column <- go_back_and_check[to_check_currently, ]
+          go_back_and_check <- matrix(go_back_and_check[set_aside, ],
+                                      ncol = 2)
+          # ------------------------------------------------------------------------------------------------
+        } else {
+          finished <- TRUE
+          next_row_column <- c(2,2)
+        }
+        # ------------------------------------------------------------------------------------------------
+      }
+      # ------------------------------------------------------------------------------------------------
+      
+      # ------------------------------------------------------------------------------------------------
+      # increment loop to the next step
+      outlet_row <- next_row_column[1]
+      outlet_column <- next_row_column[2]
+      outlet_neighbors <- flow_dir_deg_mat[cbind(outlet_row + outlet_neighbors_dy,
+                                                 outlet_column + outlet_neighbors_dx)]
+      # ------------------------------------------------------------------------------------------------
+    }
+    cat('\n')
+    # ------------------------------------------------------------------------------------------------
+    return(list(all_check,
+                cells_flowing_to_outlet))
+  }
+  # ------------------------------------------------------------------------------------------------
+  
+  
+  
+  
   
   
   
@@ -1011,64 +1234,47 @@ Watershed_Delineator <- function(raster,
   
   ################################################## UPSTREAM RECURSION #######################################
   
+  # ------------------------------------------------------------------------------------------------
+  # notify user
+  if(suppress_console_messages == FALSE){
 
-  
-  # ------------------------------------------------------------------------------------------------
-  # get degree values
-  flow_dir_deg_mat <- matrix(flow_dir_deg_output,
-                             ncol = ncol(raster),
-                             nrow = nrow(raster),
-                             byrow = TRUE)
-  # ------------------------------------------------------------------------------------------------
-  
-  # ------------------------------------------------------------------------------------------------
-  # which column and row is the outlet in
-  # if its a multiple of the columns it must be the last column and then the row stays the same
-  # else a value of something like 64 in a 10 by 10 matrix will actually be located in the 7th row at position 4
-  # so add one to the outlet row
-  outlet_column <- outlet_cell %% ncol(raster)
-  if(outlet_column == 0){
-    outlet_column <- ncol(raster)
-    outlet_row <- floor(outlet_cell/ncol(raster))
-  } else {
-    outlet_row <- floor(outlet_cell/ncol(raster))
-    outlet_row <- outlet_row + 1
+    cat(paste0('Calculating watershed of specified outlet point.\n'))
+    cat('Step (2/2)\n')
   }
   # ------------------------------------------------------------------------------------------------
   
   # ------------------------------------------------------------------------------------------------
-  # positions of cell neighbors to the north south east and west
-  outlet_neighbors_dx <- c(0,0,1,-1)
-  outlet_neighbors_dy <- c(-1,1,0,0)
-  outlet_neighbors <- flow_dir_deg_mat[cbind(outlet_row + outlet_neighbors_dy,
-                                             outlet_column + outlet_neighbors_dx)]
+  output <- check_all_cells_flowing_to_outlet(raster = raster,
+                                              diff_x = diff_x,
+                                              diff_y = diff_y,
+                                              flow_dir_deg_output = flow_dir_deg_output,
+                                              outlet_cell = outlet_cell)
   # ------------------------------------------------------------------------------------------------
   
   # ------------------------------------------------------------------------------------------------
-  # angles that neighbors can point to
-  if(is.null(diff_x) == TRUE |
-     is.null(diff_y) == TRUE){
-    diff_x <- res(raster)[1]
-    diff_y <- res(raster)[2]
-  }
+  flow_dir_rast <- rast(ncol = ncol(raster),
+                        nrow = nrow(raster),
+                        crs = crs(raster),
+                        xmin = xmin(raster),
+                        xmax = xmax(raster),
+                        ymin = ymin(raster),
+                        ymax = ymax(raster))
+  flow_rast <- flow_dir_rast
+  check_rast <- flow_dir_rast
   
-  diff_dx <- c( -1, -1,  -1, 1)
-  diff_dy <- c( -1,  1,   1, 1)
+  values(flow_rast) <- output[[2]]
+  values(check_rast) <- output[[1]]
   
-  diff_dx_shifted <- c( 1,  1, -1,  1) 
-  diff_dy_shifted <- c(-1,  1, -1, -1)
-  
-  bounds <- cbind(atan2(diff_y*diff_dy,
-                        diff_x*diff_dx),
-                  atan2(diff_y*diff_dy_shifted,
-                        diff_x*diff_dx_shifted))
-  bounds <- (bounds + (2*pi)) %% (2*pi)
-  bounds <- bounds * (180/pi)
+  stack <- c(flow_rast,
+             check_rast)
+  names(stack) <- c('Flow to Outlet','Checked Cells')
   # ------------------------------------------------------------------------------------------------
   
-  
-  
-  
-  
+  # ------------------------------------------------------------------------------------------------
+  # writeout
+  writeRaster(stack,
+              file.path(out_dir,paste0(flow_to_outlet_rast_name,'.tif')),
+              overwrite = TRUE)
+  # ------------------------------------------------------------------------------------------------
 }
 # ------------------------------------------------------------------------------------------------
