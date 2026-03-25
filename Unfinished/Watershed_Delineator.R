@@ -549,7 +549,7 @@ Watershed_Delineator <- function(raster,
           # ------------------------------------------------------------------------------------------------
           # do any directions exceed the wedge bounds
           inds <- which(bounds_comp[,3] < apply(bounds_comp[,1:2],1,min)|
-                          bounds_comp[,3] > apply(bounds_comp[,1:2],1,max))
+                        bounds_comp[,3] > apply(bounds_comp[,1:2],1,max))
           if(length(inds) > 0){
             bounds_comp_min_inds <- apply(bounds_comp[inds,3] - bounds_comp[inds,1:2],1,which.min)
             bounds_comp[inds,3] <- bounds_comp[cbind(inds,bounds_comp_min_inds)]
@@ -713,7 +713,7 @@ Watershed_Delineator <- function(raster,
   
   
   
-  
+ 
   
   
   
@@ -725,7 +725,7 @@ Watershed_Delineator <- function(raster,
   # not a raster error
   if(class(raster)[1] != 'SpatRaster'){
     if(class(raster)[1] != 'RasterLayer'){
-      stop(paste0('Watershed_Delineator:\n\n',
+      stop(paste0('\nWatershed_Delineator:\n\n',
                   'Inputs not in the form of a raster\n'))
     } else {
       raster <- rast(raster)
@@ -734,18 +734,26 @@ Watershed_Delineator <- function(raster,
   # ------------------------------------------------------------------------------------------------
   
   # ------------------------------------------------------------------------------------------------
+  # raster too small error
+  if(ncell(raster) < 16){
+    stop(paste0('\nWatershed_Delineator:\n\n',
+                'Raster too small (<16 cells) to be meaningful\n')) 
+  }
+  # ------------------------------------------------------------------------------------------------
+  
+  # ------------------------------------------------------------------------------------------------
   # forgot to pass outlet location error
   if(is.null(outlet_location) == TRUE){
-    stop(paste0('Watershed_Delineator:\n\n',
+    stop(paste0('\nWatershed_Delineator:\n\n',
                 'Outlet location passed is NULL\n'))
   } else {
     outlet_location <- coerce_outlet_location(outlet_location)
-    outlet_cell <- terra::cellFromXY(raster, as.vector(st_coordinates(outlet_location)))
+    outlet_cell <- terra::cellFromXY(raster, st_coordinates(outlet_location))
     
     # ------------------------------------------------------------------------------------------------
     # is outlet location outside raster extent
     if(is.na(outlet_cell) == TRUE){
-      stop(paste0('Watershed_Delineator:\n\n',
+      stop(paste0('\nWatershed_Delineator:\n\n',
                   'Outlet location passed is not within raster extent\n',
                   'Is passed CRS of outlet location correct?\n'))
     }
@@ -760,7 +768,7 @@ Watershed_Delineator <- function(raster,
     edge3 <- seq(from = ncol(raster), to = ncell(raster), by = ncol(raster)) # right edge
     edge4 <- seq(from = tail(edge2,1), to = tail(edge3,1), by = 1) # bottom edge
     if(outlet_cell %in% c(edge1, edge2, edge3, edge4)){
-      stop(paste0('Watershed_Delineator:\n\n',
+      stop(paste0('\nWatershed_Delineator:\n\n',
                   'Outlet location passed is on border cell of raster (forbidden)\n',
                   'Either pass more interior location or extend DEM past current location'))
     }
