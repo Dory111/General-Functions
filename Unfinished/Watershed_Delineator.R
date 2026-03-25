@@ -219,7 +219,73 @@ Watershed_Delineator <- function(raster,
   
   
   
-  
+  # ==================================================================================================
+  # Uses passed bounds and the flow angles of cell neighbors to determine what cells flow
+  # to current cell
+  # ==================================================================================================
+  check_outlet_neighbors <- function(bounds,
+                                     outlet_neighbors)
+  {
+    # ------------------------------------------------------------------------------------------------
+    # checking whether outlet flows to current cell
+    TF_points <- c()
+    checked <- rep(TRUE, length(outlet_neighbors))
+    for(i in 1:length(outlet_neighbors)){
+      # ------------------------------------------------------------------------------------------------
+      # east neighbor has to be treated differently because the angles wrap passed 360
+      if(i == 4){
+        # ------------------------------------------------------------------------------------------------
+        # if its an edge piece it cant point anywhere so disregard it
+        if(is.na(outlet_neighbors[i]) == TRUE){
+          TF_points <- append(TF_points, FALSE)
+        } else {
+          # ------------------------------------------------------------------------------------------------
+          # if the neighbor points within the bound angles then it flows to the outlet cell
+          # otherwise FALSE
+          if(outlet_neighbors[i] >= 0 &
+             outlet_neighbors[i] <= min(bounds[i, ])){
+            TF_points <- append(TF_points, TRUE)
+          } else if (outlet_neighbors[i] >= max(bounds[i, ]) &
+                     outlet_neighbors[i] <= 360){
+            TF_points <- append(TF_points, TRUE)
+          } else {
+            TF_points <- append(TF_points, FALSE)
+          }
+          # ------------------------------------------------------------------------------------------------
+        }
+        # ------------------------------------------------------------------------------------------------
+        
+        
+      } else {
+        
+        # ------------------------------------------------------------------------------------------------
+        # if its an edge piece it cant point anywhere so disregard it
+        if(is.na(outlet_neighbors[i]) == TRUE){
+          TF_points <- append(TF_points, FALSE)
+        } else {
+          # ------------------------------------------------------------------------------------------------
+          # if the neighbor points within the bound angles then it flows to the outlet cell
+          # otherwise FALSE
+          if(outlet_neighbors[i] >= min(bounds[i, ]) &
+             outlet_neighbors[i] <= max(bounds[i, ])){
+            TF_points <- append(TF_points, TRUE)
+          } else {
+            TF_points <- append(TF_points, FALSE)
+          }
+          # ------------------------------------------------------------------------------------------------
+        }
+        # ------------------------------------------------------------------------------------------------
+      }
+      # ------------------------------------------------------------------------------------------------
+    }
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    return(list(TF_points,
+                checked))
+    # ------------------------------------------------------------------------------------------------
+  }
+  # ------------------------------------------------------------------------------------------------
   
   
   
@@ -944,5 +1010,65 @@ Watershed_Delineator <- function(raster,
   
   
   ################################################## UPSTREAM RECURSION #######################################
+  
+
+  
+  # ------------------------------------------------------------------------------------------------
+  # get degree values
+  flow_dir_deg_mat <- matrix(flow_dir_deg_output,
+                             ncol = ncol(raster),
+                             nrow = nrow(raster),
+                             byrow = TRUE)
+  # ------------------------------------------------------------------------------------------------
+  
+  # ------------------------------------------------------------------------------------------------
+  # which column and row is the outlet in
+  # if its a multiple of the columns it must be the last column and then the row stays the same
+  # else a value of something like 64 in a 10 by 10 matrix will actually be located in the 7th row at position 4
+  # so add one to the outlet row
+  outlet_column <- outlet_cell %% ncol(raster)
+  if(outlet_column == 0){
+    outlet_column <- ncol(raster)
+    outlet_row <- floor(outlet_cell/ncol(raster))
+  } else {
+    outlet_row <- floor(outlet_cell/ncol(raster))
+    outlet_row <- outlet_row + 1
+  }
+  # ------------------------------------------------------------------------------------------------
+  
+  # ------------------------------------------------------------------------------------------------
+  # positions of cell neighbors to the north south east and west
+  outlet_neighbors_dx <- c(0,0,1,-1)
+  outlet_neighbors_dy <- c(-1,1,0,0)
+  outlet_neighbors <- flow_dir_deg_mat[cbind(outlet_row + outlet_neighbors_dy,
+                                             outlet_column + outlet_neighbors_dx)]
+  # ------------------------------------------------------------------------------------------------
+  
+  # ------------------------------------------------------------------------------------------------
+  # angles that neighbors can point to
+  if(is.null(diff_x) == TRUE |
+     is.null(diff_y) == TRUE){
+    diff_x <- res(raster)[1]
+    diff_y <- res(raster)[2]
+  }
+  
+  diff_dx <- c( -1, -1,  -1, 1)
+  diff_dy <- c( -1,  1,   1, 1)
+  
+  diff_dx_shifted <- c( 1,  1, -1,  1) 
+  diff_dy_shifted <- c(-1,  1, -1, -1)
+  
+  bounds <- cbind(atan2(diff_y*diff_dy,
+                        diff_x*diff_dx),
+                  atan2(diff_y*diff_dy_shifted,
+                        diff_x*diff_dx_shifted))
+  bounds <- (bounds + (2*pi)) %% (2*pi)
+  bounds <- bounds * (180/pi)
+  # ------------------------------------------------------------------------------------------------
+  
+  
+  
+  
+  
 }
 # ------------------------------------------------------------------------------------------------
