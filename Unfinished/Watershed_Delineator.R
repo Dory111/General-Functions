@@ -1028,7 +1028,7 @@ Watershed_Delineator <- function(raster,
         # if current cell has none to check look back to the ones that have been set aside
         # and choose a random one from that set
         # if no neighbors need to be checked on current cell, and none are left set aside set break loop
-        if(nrow(next_row_column) > 1){
+        if(nrow(next_row_column) >= 1){
           # ------------------------------------------------------------------------------------------------
           # get the next row and column
           to_check_currently <- round(runif(n = 1, min = 1, max = nrow(next_row_column)))
