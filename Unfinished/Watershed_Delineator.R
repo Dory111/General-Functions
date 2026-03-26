@@ -417,17 +417,17 @@ Watershed_Delineator <- function(raster,
   # Generates the likely direction of flow from a DEM (0-360 degrees, 90 being north)
   # based on D (inf) method of Tarboton 1997 (https://doi.org/10.1029/96WR03137)
   # ==================================================================================================
-  flow_dir_of_DEM <- function(raster = test_rast){
+  flow_dir_of_DEM <- function(raster){
     # ==================================================================================================
     # Takes current cell and uses 8 neighbors to find the flow across that cell
     # ==================================================================================================
-    flow_dir_of_neighbors <- function(raster = test_rast,
+    flow_dir_of_neighbors <- function(raster,
                                       values = NULL,
                                       row = 2,
                                       column = 2,
                                       diff_x = NULL,
                                       diff_y = NULL,
-                                      min_slope = 1)
+                                      min_slope = min_slope)
     {
       
       # ==================================================================================================
@@ -731,8 +731,7 @@ Watershed_Delineator <- function(raster,
                         bounds_comp[,3] > apply(bounds_comp[,1:2],1,max))
           if(length(inds) > 0){
             bounds_comp_min_inds <- apply(matrix(bounds_comp[inds,3] - bounds_comp[inds,1:2],
-                                                 ncol = 2,
-                                                 byrow = TRUE),1,which.min)
+                                                 ncol = 2),1,which.min)
             bounds_comp[inds,3] <- bounds_comp[cbind(inds,bounds_comp_min_inds)]
           }
           # ------------------------------------------------------------------------------------------------
@@ -974,7 +973,7 @@ Watershed_Delineator <- function(raster,
       characters <- c('|', '/', '-','\\')
       while(finished == FALSE){
         niter <- niter + 1
-        
+
         # ------------------------------------------------------------------------------------------------
         # check what cells flow to current cell
         output <- check_outlet_neighbors(bounds,
@@ -1058,7 +1057,8 @@ Watershed_Delineator <- function(raster,
           
           # ------------------------------------------------------------------------------------------------
           # if theres nothing left set aside, then the loop must be over
-          if(nrow(go_back_and_check) != 0){
+          if(nrow(go_back_and_check) != 0 &
+             counter != 0){
             # ------------------------------------------------------------------------------------------------
             # get the next row and column
             to_check_currently <- round(runif(n = 1, min = 1, max = nrow(go_back_and_check)))
@@ -1467,7 +1467,7 @@ Watershed_Delineator <- function(raster,
   
   values(flow_rast) <- output[[2]]
   values(check_rast) <- output[[1]]
-  
+
   stack <- c(flow_rast,
              check_rast)
   names(stack) <- c('Flow to Outlet','Checked Cells')
