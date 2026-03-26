@@ -4,23 +4,16 @@ rast <- raster(ncol = 10, nrow = 10,
                xmn = 1000, xmx = 2000,
                ymn = 1000, ymx = 2000,
                crs = 3310)
-start_value <- 100
-subtract <- 20
-start_row <- rep(start_value, ncol(rast))
-half_rows <- list(start_row)
-for(i in 2:(nrow(rast)/2)){
-  row <- half_rows[[i-1]]
-  inds <- c(i,ncol(rast)-i+1)
-  row[inds[1]:inds[2]] <- row[inds[1]:inds[2]] - subtract
-  half_rows[[i]] <- row
+values <- matrix(data = NA, nrow = 10, ncol = 10)
+values[1, ] <- seq(from = 50, to = 0, length.out = 10)
+values[ ,1] <- seq(from = 50, to = 100, length.out = 10)
+values[ ,10] <- seq(from = 0, to = 50, length.out = 10)
+values[10, ] <- seq(from = 100, to = 50, length.out = 10)
+for(i in 1:9){
+  values[i, ] <- seq(from = values[i,1], to = values[i,10], length.out = 10)
 }
-half_rows2 <- do.call(rbind, half_rows[5:1])
-half_rows <- do.call(rbind, half_rows)
+values(rast) <- as.vector(values)
 
-
-all_rows <- rbind(half_rows,
-                  half_rows2)
-values(rast) <- all_rows
 
 
 
@@ -39,10 +32,10 @@ sink_code <- -4444
 flat_code <- -9999
 outlet_location_CRS <- NULL
 outlet_location_is_sf <- TRUE
-outlet_location <- st_sf(st_sfc(st_point(x = c(1350,1350)),
+outlet_location <- st_sf(st_sfc(st_point(x = c(1250,1150)),
                           crs = 3310))
 st_geometry(outlet_location) <- 'geometry'
-outlet_location2 <- st_sf(st_sfc(st_point(x = c(1350,1650)),
+outlet_location2 <- st_sf(st_sfc(st_point(x = c(1150,1250)),
                                  crs = 3310))
 st_geometry(outlet_location2) <- 'geometry'
 outlet_location <- rbind(outlet_location,
