@@ -1047,6 +1047,7 @@ Watershed_Delineator <- function(raster,
       cells_flowing_to_outlet <- matrix(FALSE,
                                         ncol = ncol(raster),
                                         nrow = nrow(raster))
+      
       # ------------------------------------------------------------------------------------------------
       
       # ------------------------------------------------------------------------------------------------
@@ -1072,6 +1073,8 @@ Watershed_Delineator <- function(raster,
       }
       all_check[outlet_row, outlet_column] <- TRUE
       cells_flowing_to_outlet[outlet_row, outlet_column] <- TRUE
+      
+      all_row_columns <- matrix(data = c(outlet_row, outlet_column), nrow = 1, ncol = 2)
       # ------------------------------------------------------------------------------------------------
       
       # ------------------------------------------------------------------------------------------------
@@ -1115,12 +1118,13 @@ Watershed_Delineator <- function(raster,
       characters <- c('|', '/', '-','\\')
       while(finished == FALSE){
         niter <- niter + 1
-
+        
         # ------------------------------------------------------------------------------------------------
         # check what cells flow to current cell
         output <- check_outlet_neighbors(bounds,
                                          outlet_neighbors)
         # ------------------------------------------------------------------------------------------------
+        
         
         # ------------------------------------------------------------------------------------------------
         # update matrices
@@ -1149,19 +1153,24 @@ Watershed_Delineator <- function(raster,
             if(pos == 0){
               pos <- 1
             }
-            spinning_bar(optional_text = paste0('Outlet Cell: ',i,' | Ncell Checked: ', ncheck),
+            spinning_bar(optional_text = paste0('Outlet Cell: ',i,
+                                                ' | Niter: ', niter,
+                                                ' | Unique Cell Checked: ', ncheck),
                          character = characters[pos],
                          iter = i + niter-1)
           } else {
             if(niter == 1){
               pos <- 1
             } else {}
-            spinning_bar(optional_text = paste0('Outlet Cell: ',i ,' | Ncell Checked: ', ncheck),
+            spinning_bar(optional_text = paste0('Outlet Cell: ',i,
+                                                ' | Niter: ', niter,
+                                                ' | Unique Cell Checked: ', ncheck),
                          character = characters[pos],
                          iter = i + niter-1)
           }
         }
         # ------------------------------------------------------------------------------------------------
+        
         
         # ------------------------------------------------------------------------------------------------
         # if the current cell has neighbors still to check then check them
@@ -1203,13 +1212,51 @@ Watershed_Delineator <- function(raster,
              counter != 0){
             # ------------------------------------------------------------------------------------------------
             # get the next row and column
-            to_check_currently <- round(runif(n = 1, min = 1, max = nrow(go_back_and_check)))
-            set_aside <- c(1:nrow(go_back_and_check))[-c(to_check_currently)]
+            go_back_and_check <- unique(go_back_and_check)
             
-            
-            next_row_column <- go_back_and_check[to_check_currently, ]
-            go_back_and_check <- matrix(go_back_and_check[set_aside, ],
-                                        ncol = 2)
+            # ------------------------------------------------------------------------------------------------
+            # while the randomly selected row and column are already in the set of checked cells continue
+            # continually remove cells from go_back_and_check if they are already checked
+            # if it is not in the set of checked cells set that to the next one to check
+            # break loop
+            row_column_new <- FALSE
+            while(row_column_new == FALSE){
+              # ------------------------------------------------------------------------------------------------
+              to_check_currently <- round(runif(n = 1, min = 1, max = nrow(go_back_and_check)))
+              set_aside <- c(1:nrow(go_back_and_check))[-c(to_check_currently)]
+              # ------------------------------------------------------------------------------------------------
+              
+              # ------------------------------------------------------------------------------------------------
+              # if its already in the set of things to check, remove it and redo
+              step1 <- matrix(all_row_columns[all_row_columns[ ,1] == go_back_and_check[to_check_currently, 1], ],
+                              ncol = 2)
+              step2 <- matrix(step1[step1[ ,2] == go_back_and_check[to_check_currently, 2], ],
+                              ncol = 2)
+              if(nrow(step2) > 0){
+                # ------------------------------------------------------------------------------------------------
+                # if there are no cells to go back and check, at this point in the program the list
+                # of primary cells has also been exhausted. Therefore there are no primary cells to check
+                # and no cells to go back and check. Everything is exhausted. Break loop.
+                go_back_and_check <- matrix(go_back_and_check[-c(to_check_currently), ],
+                                            ncol = 2)
+                if(nrow(go_back_and_check) == 0){
+                  row_column_new <- TRUE
+                  finished <- TRUE
+                  next_row_column <- c(2,2)
+                }
+                # ------------------------------------------------------------------------------------------------
+              }
+              # ------------------------------------------------------------------------------------------------
+              
+              # ------------------------------------------------------------------------------------------------
+              if(nrow(step2) == 0){
+                next_row_column <- go_back_and_check[to_check_currently, ]
+                go_back_and_check <- matrix(go_back_and_check[set_aside, ],
+                                            ncol = 2)
+                row_column_new <- TRUE
+              }
+              # ------------------------------------------------------------------------------------------------
+            }
             # ------------------------------------------------------------------------------------------------
           } else {
             finished <- TRUE
@@ -1225,6 +1272,8 @@ Watershed_Delineator <- function(raster,
         outlet_column <- next_row_column[2]
         outlet_neighbors <- flow_dir_deg_mat[cbind(outlet_row + outlet_neighbors_dy,
                                                    outlet_column + outlet_neighbors_dx)]
+        all_row_columns <- rbind(all_row_columns,
+                                 next_row_column)
         # ------------------------------------------------------------------------------------------------
       }
       # ------------------------------------------------------------------------------------------------
