@@ -1,17 +1,80 @@
+# # ------------------------------------------------------------------------------------------------
+# # testing values
+# # uniform flow to center sink, two outlets
+# rast <- raster(ncol = 10, nrow = 10,
+#                xmn = 1000, xmx = 2000,
+#                ymn = 1000, ymx = 2000,
+#                crs = 3310)
+# start_value <- 100
+# subtract <- 20
+# start_row <- rep(start_value, ncol(rast))
+# half_rows <- list(start_row)
+# for(i in 2:(nrow(rast)/2)){
+#   row <- half_rows[[i-1]]
+#   inds <- c(i,ncol(rast)-i+1)
+#   row[inds[1]:inds[2]] <- row[inds[1]:inds[2]] - subtract
+#   half_rows[[i]] <- row
+# }
+# half_rows2 <- do.call(rbind, half_rows[5:1])
+# half_rows <- do.call(rbind, half_rows)
+# 
+# 
+# all_rows <- rbind(half_rows,
+#                   half_rows2)
+# values(rast) <- all_rows
+# 
+# 
+# 
+# raster <- rast
+# out_dir <- 'C:/Users/ChristopherDory/LWA Dropbox/Christopher Dory/Projects/598/598.06/00 ISW/Output/Raster'
+# flow_dir_rast_name <- 'Flow_Dir_Test'
+# flow_to_outlet_rast_name <- 'Outlet_Test'
+# min_slope <- 1
+# diff_x <- NULL
+# diff_y <- NULL
+# zunit <- 'm'
+# suppress_loading_bar <- FALSE
+# suppress_console_messages <- FALSE
+# spinning_bar_update_cycle <- 1
+# sink_code <- -4444
+# flat_code <- -9999
+# outlet_location_CRS <- NULL
+# outlet_location_is_sf <- TRUE
+# outlet_location <- st_sf(st_sfc(st_point(x = c(1350,1350)),
+#                                 crs = 3310))
+# st_geometry(outlet_location) <- 'geometry'
+# outlet_location2 <- st_sf(st_sfc(st_point(x = c(1350,1650)),
+#                                  crs = 3310))
+# st_geometry(outlet_location2) <- 'geometry'
+# outlet_location <- rbind(outlet_location,
+#                          outlet_location2)
+# st_geometry(outlet_location) <- 'geometry'
+# # -----------------------------------------------------------------------------------------------
+
+
 # ------------------------------------------------------------------------------------------------
 # testing values
+# sink at DEM corner
 rast <- raster(ncol = 10, nrow = 10,
                xmn = 1000, xmx = 2000,
                ymn = 1000, ymx = 2000,
                crs = 3310)
+
+
 values <- matrix(data = NA, nrow = 10, ncol = 10)
-values[1, ] <- seq(from = 50, to = 0, length.out = 10)
+values[1, ] <- seq(from = 50, to = 0, length.out = 10) 
 values[ ,1] <- seq(from = 50, to = 100, length.out = 10)
 values[ ,10] <- seq(from = 0, to = 50, length.out = 10)
 values[10, ] <- seq(from = 100, to = 50, length.out = 10)
 for(i in 1:9){
-  values[i, ] <- seq(from = values[i,1], to = values[i,10], length.out = 10)
+  values[i,2:9] <- seq(from = values[i,1], to = values[i,10], length.out = 10)[2:9] + runif(n = 8, min = -2, max = 2)
 }
+values[values < 0] <- 0
+values[1, ] <- 100
+values[ ,1] <- 100
+values[ ,10] <- 100
+values[10, ] <- 100
+
 values(rast) <- as.vector(values)
 
 
@@ -32,14 +95,14 @@ sink_code <- -4444
 flat_code <- -9999
 outlet_location_CRS <- NULL
 outlet_location_is_sf <- TRUE
-outlet_location <- st_sf(st_sfc(st_point(x = c(1250,1150)),
+outlet_location <- st_sf(st_sfc(st_point(x = c(1150,1150)),
                           crs = 3310))
-st_geometry(outlet_location) <- 'geometry'
-outlet_location2 <- st_sf(st_sfc(st_point(x = c(1150,1250)),
-                                 crs = 3310))
-st_geometry(outlet_location2) <- 'geometry'
-outlet_location <- rbind(outlet_location,
-                         outlet_location2)
+# st_geometry(outlet_location) <- 'geometry'
+# outlet_location2 <- st_sf(st_sfc(st_point(x = c(1150,1250)),
+#                                  crs = 3310))
+# st_geometry(outlet_location2) <- 'geometry'
+# outlet_location <- rbind(outlet_location,
+#                          outlet_location2)
 st_geometry(outlet_location) <- 'geometry'
 outlet_location_is_line <- FALSE
 outlet_location_line_density <- 100
@@ -59,7 +122,7 @@ Watershed_Delineator <- function(raster,
                                  outlet_location_line_density = 100,
                                  flow_to_outlet_rast_name = NULL,
                                  flow_dir_rast_name = NULL,
-                                 min_slope = 1,
+                                 min_slope = 0,
                                  flat_code = -9999,
                                  sink_code = -4444,
                                  diff_x = NULL,
@@ -269,55 +332,130 @@ Watershed_Delineator <- function(raster,
   {
     # ------------------------------------------------------------------------------------------------
     # checking whether outlet flows to current cell
-    TF_points <- c()
+    TF_points <- rep(TRUE, length(outlet_neighbors))
     checked <- rep(TRUE, length(outlet_neighbors))
-    for(i in 1:length(outlet_neighbors)){
-      # ------------------------------------------------------------------------------------------------
-      # east neighbor has to be treated differently because the angles wrap passed 360
-      if(i == 4){
-        # ------------------------------------------------------------------------------------------------
-        # if its an edge piece it cant point anywhere so disregard it
-        if(is.na(outlet_neighbors[i]) == TRUE){
-          TF_points <- append(TF_points, FALSE)
-        } else {
-          # ------------------------------------------------------------------------------------------------
-          # if the neighbor points within the bound angles then it flows to the outlet cell
-          # otherwise FALSE
-          if(outlet_neighbors[i] >= 0 &
-             outlet_neighbors[i] <= min(bounds[i, ])){
-            TF_points <- append(TF_points, TRUE)
-          } else if (outlet_neighbors[i] >= max(bounds[i, ]) &
-                     outlet_neighbors[i] <= 360){
-            TF_points <- append(TF_points, TRUE)
-          } else {
-            TF_points <- append(TF_points, FALSE)
-          }
-          # ------------------------------------------------------------------------------------------------
-        }
-        # ------------------------------------------------------------------------------------------------
-        
-        
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # check cell 1
+    if(is.na(outlet_neighbors[1]) == TRUE){
+      TF_points[1] <- FALSE
+    } else {
+      if(outlet_neighbors[1] > min(bounds[1, ]) &
+         outlet_neighbors[1] < max(bounds[1, ])){
+        TF_points[1] <- TRUE
       } else {
-        
-        # ------------------------------------------------------------------------------------------------
-        # if its an edge piece it cant point anywhere so disregard it
-        if(is.na(outlet_neighbors[i]) == TRUE){
-          TF_points <- append(TF_points, FALSE)
-        } else {
-          # ------------------------------------------------------------------------------------------------
-          # if the neighbor points within the bound angles then it flows to the outlet cell
-          # otherwise FALSE
-          if(outlet_neighbors[i] >= min(bounds[i, ]) &
-             outlet_neighbors[i] <= max(bounds[i, ])){
-            TF_points <- append(TF_points, TRUE)
-          } else {
-            TF_points <- append(TF_points, FALSE)
-          }
-          # ------------------------------------------------------------------------------------------------
-        }
-        # ------------------------------------------------------------------------------------------------
+        TF_points[1] <- FALSE
       }
-      # ------------------------------------------------------------------------------------------------
+    }
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # check cell 2
+    if(is.na(outlet_neighbors[2]) == TRUE){
+      TF_points[2] <- FALSE
+    } else {
+      if(outlet_neighbors[2] > min(bounds[2, ]) &
+         outlet_neighbors[2] < max(bounds[2, ])){
+        TF_points[2] <- TRUE
+      } else {
+        TF_points[2] <- FALSE
+      }
+    }
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # check cell 3
+    if(is.na(outlet_neighbors[3]) == TRUE){
+      TF_points[3] <- FALSE
+    } else {
+      if(outlet_neighbors[3] > min(bounds[3, ]) &
+         outlet_neighbors[3] < max(bounds[3, ])){
+        TF_points[3] <- TRUE
+      } else {
+        TF_points[3] <- FALSE
+      }
+    }
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # check cell 4
+    if(is.na(outlet_neighbors[4]) == TRUE){
+      TF_points[4] <- FALSE
+    } else {
+      if(outlet_neighbors[4] > min(bounds[4, ]) &
+         outlet_neighbors[4] < max(bounds[4, ])){
+        TF_points[4] <- TRUE
+      } else {
+        TF_points[4] <- FALSE
+      }
+    }
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # check cell 5
+    if(is.na(outlet_neighbors[5]) == TRUE){
+      TF_points[5] <- FALSE
+    } else {
+      if(outlet_neighbors[5] > min(bounds[5, ]) &
+         outlet_neighbors[5] < max(bounds[5, ])){
+        TF_points[5] <- TRUE
+      } else {
+        TF_points[5] <- FALSE
+      }
+    }
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # check cell 6
+    if(is.na(outlet_neighbors[6]) == TRUE){
+      TF_points[6] <- FALSE
+    } else {
+      if(outlet_neighbors[6] > min(bounds[6, ]) &
+         outlet_neighbors[6] < max(bounds[6, ])){
+        TF_points[6] <- TRUE
+      } else {
+        TF_points[6] <- FALSE
+      }
+    }
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # check cell 7
+    if(is.na(outlet_neighbors[7]) == TRUE){
+      TF_points[7] <- FALSE
+    } else {
+      if(outlet_neighbors[7] == 0){
+        outlet_neighbors[7] <- 360
+      }
+      
+      if(outlet_neighbors[7] >= 0 &
+         outlet_neighbors[7] < min(bounds[7, ])){
+        TF_points[7] <- TRUE
+      } else if (outlet_neighbors[7] > max(bounds[7, ]) &
+                 outlet_neighbors[7] <= 360){
+        TF_points[7] <- TRUE
+      } else {
+        TF_points[7] <- FALSE
+      }
+    }
+    # ------------------------------------------------------------------------------------------------
+    
+    # ------------------------------------------------------------------------------------------------
+    # check cell 8
+    if(is.na(outlet_neighbors[8]) == TRUE){
+      TF_points[8] <- FALSE
+    } else {
+      if(outlet_neighbors[8] == 0){
+        outlet_neighbors[8] <- 360
+      }
+      
+      if(outlet_neighbors[8] > max(bounds[8, ]) &
+         outlet_neighbors[8] < 360){
+        TF_points[8] <- TRUE
+      } else {
+        TF_points[8] <- FALSE
+      }
     }
     # ------------------------------------------------------------------------------------------------
     
@@ -783,7 +921,7 @@ Watershed_Delineator <- function(raster,
           } else {
             
             ind <- which(slopes_wedges == max(slopes_wedges))
-            
+            # ------------------------------------------------------------------------------------------------
             if(length(ind) > 1){
               final_dir <- mean(dir_wedges[ind], na.rm = T)
               final_dir_deg <- final_dir * (180/3.14159)
@@ -795,7 +933,18 @@ Watershed_Delineator <- function(raster,
               final_dir_deg <- (final_dir_deg + 360) %% 360
               max_slope <- slopes_wedges[ind]
             }
+            # ------------------------------------------------------------------------------------------------
             
+            # ------------------------------------------------------------------------------------------------
+            final_dir <- round(final_dir, 0)
+            final_dir_deg <- round(final_dir_deg, 0)
+            if(final_dir == 2*pi){
+              final_dir <- 0
+            }
+            if(final_dir_deg == 360){
+              final_dir_deg <- 0
+            }
+            # ------------------------------------------------------------------------------------------------
           }
           # ------------------------------------------------------------------------------------------------
         } else{
@@ -926,9 +1075,9 @@ Watershed_Delineator <- function(raster,
       # ------------------------------------------------------------------------------------------------
       
       # ------------------------------------------------------------------------------------------------
-      # positions of cell neighbors to the north south east and west
-      outlet_neighbors_dx <- c(0,0,1,-1)
-      outlet_neighbors_dy <- c(-1,1,0,0)
+      # positions of all eight cell neighbors N, NE, E, SE, S, SW, W, NW
+      outlet_neighbors_dx <- c( 0,  1, 1, 1, 0, -1, -1, -1)
+      outlet_neighbors_dy <- c(-1, -1, 0, 1, 1,  1,  0, -1)
       outlet_neighbors <- flow_dir_deg_mat[cbind(outlet_row + outlet_neighbors_dy,
                                                  outlet_column + outlet_neighbors_dx)]
       # ------------------------------------------------------------------------------------------------
@@ -941,11 +1090,11 @@ Watershed_Delineator <- function(raster,
         diff_y <- res(raster)[2]
       }
       
-      diff_dx <- c( -1, -1,  -1, 1)
-      diff_dy <- c( -1,  1,   1, 1)
+      diff_dx <- c(-1, -1, -1, 0, 1, 1,  1,  0)
+      diff_dy <- c(-1,  0,  1, 1, 1, 0, -1, -1)
       
-      diff_dx_shifted <- c( 1,  1, -1,  1) 
-      diff_dy_shifted <- c(-1,  1, -1, -1)
+      diff_dx_shifted <- c( 1,  0, -1, -1, -1, 0, 1, 1) 
+      diff_dy_shifted <- c(-1, -1, -1,  0,  1, 1, 1, 0)
       
       bounds <- cbind(atan2(diff_y*diff_dy,
                             diff_x*diff_dx),
